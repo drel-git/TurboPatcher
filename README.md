@@ -1,5 +1,7 @@
 # Turbo Patcher
 
+> **Just want the patcher? [Download TurboPatcher.exe here](https://github.com/drel-git/TurboPatcher/releases/latest/download/TurboPatcher.exe)**, drop it in your MacroQuest folder, and run it. Everything below is for developers.
+
 A small Windows installer/updater for the **Turbo suite** (TurboGear, TurboLoot,
 TurboGive, TurboMobs, TurboEtc) on MacroQuest.
 
