@@ -39,14 +39,16 @@ jobs:
           -p:Version=${{ steps.version.outputs.num }}
           -o publish
 
-      - name: Zip release
-        run: |
-          Get-ChildItem publish -Exclude *.pdb | Compress-Archive -DestinationPath TurboPatcher.zip
+      # Attach the bare exe: it is fully self-contained, so the release
+      # download is a single file players can run directly. The stable link
+      # releases/latest/download/TurboPatcher.exe always serves the newest one.
+      - name: Stage release asset
+        run: Copy-Item publish\TurboPatcher.exe TurboPatcher.exe
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          files: TurboPatcher.zip
+          files: TurboPatcher.exe
           name: Turbo Patcher ${{ github.ref_name }}
           generate_release_notes: true
           make_latest: true
