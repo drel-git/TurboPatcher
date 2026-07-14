@@ -16,10 +16,11 @@ installs and updates.
      box** (the config dir is shared, and TurboGear watches for this file — see
      the patch-lock hook in the addon);
    - downloads the latest `main` source zip from GitHub;
-   - backs up any files it will replace to `config/TurboPatcher_backup/<timestamp>/`;
-   - copies `lua/` and `Macros/` into the MacroQuest folder (program files),
-     and copies `config/` **without overwriting** existing files (so your edited
-     `.ini`s are preserved);
+   - backs up any files it will replace to `config/TurboPatcher_backup/<timestamp>/`
+     (the newest 5 backups are kept, older ones pruned);
+   - copies `lua/` and `Macros/` into the MacroQuest folder (program files,
+     minus dev-only `lua/tests/`), and copies `config/` **without overwriting**
+     existing files (so your edited `.ini`s are preserved);
    - **never touches** your runtime data in `config/` (`TurboGear_*.lua`, the
      `_cache.lua`/`.db`, shared settings, BiS/watch lists) — those aren't in the
      repo, so they're left alone;
@@ -51,6 +52,10 @@ dotnet publish TurboPatcher.csproj -c Release -r win-x64 ^
 ```
 
 ## Notes
+
+- **The Turbo repo must be reachable without auth**: the patcher downloads the
+  branch zip and commit list anonymously, so the addon repo has to be public
+  (or the patcher switched to downloading a Release asset from a public repo).
 
 - Uses only the .NET base class library (`HttpClient`, `ZipFile`,
   `System.Text.Json`) — no third-party packages.
