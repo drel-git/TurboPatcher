@@ -2,7 +2,8 @@
 
 ## **Linux: [Click here to download the zip files and extract to your E3Next or MQ folder.](https://github.com/drel-git/Turbo)**
 
-### > Type `/lua run turbo` in game and you're ready to ride. Everything below this point is nerd stuff.
+> Type `/lua run turbo` in game and you're ready to ride.
+
 <p align="center">
   <img
     width="604"
