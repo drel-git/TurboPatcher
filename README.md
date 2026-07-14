@@ -20,9 +20,8 @@ installs and updates.
    - downloads the latest `main` source zip from GitHub;
    - backs up any files it will replace to `config/TurboPatcher_backup/<timestamp>/`
      (the newest 5 backups are kept, older ones pruned);
-   - copies `lua/` and `Macros/` into the MacroQuest folder (program files,
-     minus dev-only `lua/tests/`), and copies `config/` **without overwriting**
-     existing files (so your edited `.ini`s are preserved);
+   - copies `lua/` and `Macros/` into the MacroQuest folder and copies `config/` **without overwriting**
+     existing files (so your edited `.ini`s and other configs are preserved);
    - **never touches** your runtime data in `config/` (`TurboGear_*.lua`, the
      `_cache.lua`/`.db`, shared settings, BiS/watch lists) - those aren't in the
      repo, so they're left alone;
