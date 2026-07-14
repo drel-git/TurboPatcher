@@ -46,7 +46,9 @@ The patcher reads the **public mirror** `drel-git/Turbo`.
 
 CI builds it for you: pushing a `v*` tag runs `.github/workflows/release.yml`,
 which publishes a self-contained single-file `win-x64` exe and attaches
-`TurboPatcher.zip` to a GitHub Release. No local toolchain needed.
+`TurboPatcher.exe` directly to a GitHub Release, so the stable link
+`https://github.com/drel-git/TurboPatcher/releases/latest/download/TurboPatcher.exe`
+always serves the newest build. No local toolchain needed.
 
 To build locally instead:
 
