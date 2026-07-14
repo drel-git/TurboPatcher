@@ -1,11 +1,23 @@
-# Turbo Patcher
+<p align="center">
+  <img
+    width="604"
+    height="680"
+    alt="Turbo Patcher"
+    src="https://github.com/user-attachments/assets/29a45e2c-5392-4a1a-9e51-09d969e8df09"
+  />
+</p>
 
-> **Just want the patcher? [Download TurboPatcher.exe here](https://github.com/drel-git/TurboPatcher/releases/latest/download/TurboPatcher.exe)**, drop it in your MacroQuest folder, and run it. Everything below is for developers.
+## **[Windows: Click here to download TurboPatcher.exe and drop it in your E3Next/MQ folder.](https://github.com/drel-git/TurboPatcher/releases/latest/download/TurboPatcher.exe)**
 
-A small Windows installer/updater for the **Turbo suite** (TurboGear, TurboLoot,
+## **[Linux: Click here to download the zip files and extract to your E3Next or MQ folder.](https://github.com/drel-git/Turbo)**
+
+### > Type `/lua run turbo` in game and you're ready to ride. Everything below this point is nerd stuff.
+
+
+TurboPatcher is small Windows installer/updater for the **Turbo suite** (TurboGear, TurboLoot,
 TurboGive, TurboMobs, TurboEtc) on MacroQuest.
 
-Players download one self-contained `TurboPatcher.exe`, point it at their
+Players download the self-contained `TurboPatcher.exe`, point it at their
 MacroQuest folder, and click **Install / Update**. It works for both first-time
 installs and updates.
 
@@ -68,3 +80,5 @@ dotnet publish TurboPatcher.csproj -c Release -r win-x64 ^
 - The patch-lock shutdown is handled by TurboGear; if TurboGear isn't running,
   files are still replaced safely (Lua files aren't OS-locked) and picked up on
   the next `/lua run`.
+
+Loot up.
