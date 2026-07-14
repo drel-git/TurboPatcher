@@ -1,0 +1,36 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <UseWindowsForms>true</UseWindowsForms>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <AssemblyName>TurboPatcher</AssemblyName>
+    <RootNamespace>TurboPatcher</RootNamespace>
+    <ApplicationIcon>Assets\Turbo.ico</ApplicationIcon>
+    <!-- Single-file distribution: every publish (CLI or Visual Studio) yields
+         exactly one self-contained TurboPatcher.exe, nothing else to ship.
+         The native WPF libs are folded into the exe and extracted on first run. -->
+    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
+    <SelfContained>true</SelfContained>
+    <PublishSingleFile>true</PublishSingleFile>
+    <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
+    <!-- Compress the self-contained single-file bundle (~160MB -> ~70MB). -->
+    <EnableCompressionInSingleFile>true</EnableCompressionInSingleFile>
+    <DebugType>none</DebugType>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <None Remove="Assets\Turbo.ico" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Resource Include="Assets\Turbo.ico" />
+  </ItemGroup>
+
+  <!-- No third-party packages: uses only the .NET BCL (HttpClient, ZipFile,
+       System.Text.Json), so the self-contained single-file build stays lean. -->
+
+</Project>
