@@ -7,9 +7,9 @@
   />
 </p>
 
-## **[Windows: Click here to download TurboPatcher.exe and drop it in your E3Next/MQ folder.](https://github.com/drel-git/TurboPatcher/releases/latest/download/TurboPatcher.exe)**
+## **Windows: [Click here to download TurboPatcher.exe and drop it in your E3Next/MQ folder.](https://github.com/drel-git/TurboPatcher/releases/latest/download/TurboPatcher.exe)**
 
-## **[Linux: Click here to download the zip files and extract to your E3Next or MQ folder.](https://github.com/drel-git/Turbo)**
+## **Linux: [Click here to download the zip files and extract to your E3Next or MQ folder.](https://github.com/drel-git/Turbo)**
 
 ### > Type `/lua run turbo` in game and you're ready to ride. Everything below this point is nerd stuff.
 
