@@ -1,3 +1,8 @@
+## **Windows: [Click here to download TurboPatcher.exe and drop it in your E3Next/MQ folder.](https://github.com/drel-git/TurboPatcher/releases/latest/download/TurboPatcher.exe)**
+
+## **Linux: [Click here to download the zip files and extract to your E3Next or MQ folder.](https://github.com/drel-git/Turbo)**
+
+### > Type `/lua run turbo` in game and you're ready to ride. Everything below this point is nerd stuff.
 <p align="center">
   <img
     width="604"
@@ -6,13 +11,6 @@
     src="https://github.com/user-attachments/assets/29a45e2c-5392-4a1a-9e51-09d969e8df09"
   />
 </p>
-
-## **Windows: [Click here to download TurboPatcher.exe and drop it in your E3Next/MQ folder.](https://github.com/drel-git/TurboPatcher/releases/latest/download/TurboPatcher.exe)**
-
-## **Linux: [Click here to download the zip files and extract to your E3Next or MQ folder.](https://github.com/drel-git/Turbo)**
-
-### > Type `/lua run turbo` in game and you're ready to ride. Everything below this point is nerd stuff.
-
 
 TurboPatcher is small Windows installer/updater for the **Turbo suite** (TurboGear, TurboLoot,
 TurboGive, TurboMobs, TurboEtc) on MacroQuest.
