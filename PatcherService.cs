@@ -12,7 +12,7 @@ namespace TurboPatcher;
 public class PatcherService
 {
     private const string Owner  = "drel-git";
-    private const string Repo   = "Turbo-v3.9.88";
+    private const string Repo   = "Turbo";      // public release mirror (dev happens in the private repo)
     private const string Branch = "main";
 
     private static string ZipUrl     => $"https://github.com/{Owner}/{Repo}/archive/refs/heads/{Branch}.zip";

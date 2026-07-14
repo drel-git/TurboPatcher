@@ -34,9 +34,13 @@ Edit the constants at the top of `PatcherService.cs` if you fork the repo:
 
 ```csharp
 private const string Owner  = "drel-git";
-private const string Repo   = "Turbo-v3.9.88";
+private const string Repo   = "Turbo";      // public release mirror
 private const string Branch = "main";
 ```
+
+The patcher reads the **public mirror** `drel-git/Turbo`. Development happens in
+the private repo; releasing to players is just pushing the private `main` to the
+mirror (`git push public main`).
 
 ## Build
 
