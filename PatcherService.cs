@@ -15,8 +15,9 @@ public class PatcherService
     private const string Repo   = "Turbo";      // public release mirror (dev happens in the private repo)
     private const string Branch = "main";
 
-    private static string ZipUrl     => $"https://github.com/{Owner}/{Repo}/archive/refs/heads/{Branch}.zip";
-    private static string CommitsApi => $"https://api.github.com/repos/{Owner}/{Repo}/commits";
+    private static string ZipUrl       => $"https://github.com/{Owner}/{Repo}/archive/refs/heads/{Branch}.zip";
+    private static string CommitsApi   => $"https://api.github.com/repos/{Owner}/{Repo}/commits";
+    private static string ChangelogUrl => $"https://raw.githubusercontent.com/{Owner}/{Repo}/{Branch}/lua/turbogear/CHANGELOG";
 
     // Repo-root subtrees copied into the MacroQuest folder (program files).
     private static readonly string[] SyncDirs = { "lua", "Macros" };
@@ -33,6 +34,50 @@ public class PatcherService
         var h = new HttpClient { Timeout = TimeSpan.FromMinutes(5) };
         h.DefaultRequestHeaders.Add("User-Agent", "TurboPatcher");
         return h;
+    }
+
+    // ---- first-run MacroQuest folder detection --------------------------------
+    private static bool IsMqFolder(string? dir) =>
+        !string.IsNullOrEmpty(dir)
+        && Directory.Exists(Path.Combine(dir, "lua"))
+        && Directory.Exists(Path.Combine(dir, "config"));
+
+    // Best-effort: a running MacroQuest process tells us exactly where it lives;
+    // otherwise do a shallow scan of drive roots for well-known folder names.
+    public static string? DetectMacroQuestFolder()
+    {
+        foreach (var name in new[] { "MacroQuest", "MacroQuest64", "MacroQuest2" })
+        {
+            foreach (var p in System.Diagnostics.Process.GetProcessesByName(name))
+            {
+                try
+                {
+                    var dir = Path.GetDirectoryName(p.MainModule?.FileName);
+                    if (IsMqFolder(dir)) return dir;
+                    var parent = dir is null ? null : Directory.GetParent(dir)?.FullName;
+                    if (IsMqFolder(parent)) return parent;
+                }
+                catch { /* different bitness / access denied - keep looking */ }
+            }
+        }
+        try
+        {
+            foreach (var drive in DriveInfo.GetDrives())
+            {
+                if (drive.DriveType != DriveType.Fixed || !drive.IsReady) continue;
+                foreach (var dir in Directory.EnumerateDirectories(drive.RootDirectory.FullName))
+                {
+                    var name = Path.GetFileName(dir);
+                    if ((name.Contains("MacroQuest", StringComparison.OrdinalIgnoreCase)
+                         || name.Contains("E3Next", StringComparison.OrdinalIgnoreCase)
+                         || name.Contains("MQNext", StringComparison.OrdinalIgnoreCase))
+                        && IsMqFolder(dir))
+                        return dir;
+                }
+            }
+        }
+        catch { }
+        return null;
     }
 
     // ---- version check + changelog -------------------------------------------
@@ -67,17 +112,36 @@ public class PatcherService
         return sb.ToString();
     }
 
+    // The repo's CHANGELOG (lua/turbogear/CHANGELOG) makes far friendlier patch
+    // notes than raw commit subjects. Its first line is the release version
+    // (e.g. "1.1.0"). Returns ("", "") when the file is absent/unreachable.
+    private static (string Version, string Notes) FetchChangelog()
+    {
+        try
+        {
+            using var http = NewHttp();
+            var text = http.GetStringAsync(ChangelogUrl).GetAwaiter().GetResult().Trim();
+            if (text.Length == 0) return ("", "");
+            var firstLine = text.Split('\n')[0].Trim();
+            var version = System.Text.RegularExpressions.Regex.IsMatch(firstLine, @"^\d+\.\d+")
+                ? firstLine : "";
+            return (version, text);
+        }
+        catch { return ("", ""); }
+    }
+
     // Returns whether the remote head differs from the installed SHA, the remote
-    // SHA, and a short changelog to display.
-    public (bool HasNew, string RemoteSha, string Log) CheckForUpdate(string installedSha)
+    // SHA + human version (when the CHANGELOG exposes one), and patch notes.
+    public (bool HasNew, string RemoteSha, string RemoteVersion, string Log) CheckForUpdate(string installedSha)
     {
         List<(string Sha, string Date, string Message)> commits;
         try { commits = FetchCommits(15); }
-        catch { return (true, "", "Could not reach the Turbo repository (check your connection)."); }
-        if (commits.Count == 0) return (true, "", "No commits found.");
+        catch { return (true, "", "", "Could not reach the Turbo repository (check your connection)."); }
+        if (commits.Count == 0) return (true, "", "", "No commits found.");
         var remote = commits[0].Sha;
         bool hasNew = !string.Equals(remote, installedSha, StringComparison.OrdinalIgnoreCase);
-        return (hasNew, remote, BuildLog(commits));
+        var (version, notes) = FetchChangelog();
+        return (hasNew, remote, version, notes.Length > 0 ? notes : BuildLog(commits));
     }
 
     // ---- patch / install -----------------------------------------------------
@@ -101,9 +165,11 @@ public class PatcherService
         try
         {
             // 1. tell any running Turbo (on every box - shared config dir) to stop
-            Report(0.05, "Signalling Turbo to stop...");
+            Report(0.05, "Signalling running Turbo to stop (patch lock)...");
             await File.WriteAllTextAsync(lockFile, DateTimeOffset.Now.ToString("o"), ct);
-            await Task.Delay(2500, ct);
+            log.Report("Note: only Turbo builds with the patch-lock hook self-stop; older versions keep "
+                + "running (use /tgear stop) but files still update safely.");
+            await Task.Delay(4000, ct);
 
             // 2. resolve the SHA we are about to install (for the version record)
             if (string.IsNullOrEmpty(remoteSha))

@@ -9,9 +9,11 @@ installs and updates.
 
 ## What it does
 
-1. Reads the latest changelog from the Turbo repo's commit history and shows
-   `Installed: <sha> · Available: <sha>`.
-2. On **Install / Update**:
+1. On first run, auto-detects the MacroQuest folder (from a running MacroQuest
+   process, or a shallow scan of drive roots for MacroQuest/E3Next folders).
+2. Shows patch notes from `lua/turbogear/CHANGELOG` (falling back to commit
+   history) and `Installed: v<version> (<sha>) · Available: v<version> (<sha>)`.
+3. On **Install / Update**:
    - drops `config/turbo_patch.lock` so any running Turbo **self-stops on every
      box** (the config dir is shared, and TurboGear watches for this file — see
      the patch-lock hook in the addon);
@@ -26,7 +28,7 @@ installs and updates.
      repo, so they're left alone;
    - clears the lock so Turbo can run again;
    - records the installed commit SHA in `%AppData%\TurboPatcher\settings.json`.
-3. You reload Turbo in-game (`/lua run turbogear`).
+4. You reload Turbo in-game (`/lua run turbogear`).
 
 ## Configuration
 

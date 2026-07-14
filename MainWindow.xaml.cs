@@ -13,20 +13,35 @@ public partial class MainWindow : Window
     private readonly ObservableCollection<string> _logEntries = [];
     private CancellationTokenSource? _cts;
     private string _remoteSha = "";
+    private string _remoteVersion = "";
     private bool _busy;
 
     public MainWindow()
     {
         InitializeComponent();
         _settings = PatcherSettings.Load();
-        MqDirTextBox.Text = _settings.MacroQuestFolder;
         LogItems.ItemsSource = _logEntries;
+        // First run: try to find the MacroQuest folder so new users don't have to.
+        if (string.IsNullOrWhiteSpace(_settings.MacroQuestFolder))
+        {
+            var detected = PatcherService.DetectMacroQuestFolder();
+            if (detected != null)
+            {
+                _settings.MacroQuestFolder = detected;
+                AppendLog($"Detected MacroQuest folder: {detected}");
+            }
+        }
+        MqDirTextBox.Text = _settings.MacroQuestFolder;
         var ver = System.Reflection.Assembly.GetEntryAssembly()?.GetName().Version;
         VersionText.Text = ver is { Major: > 0 } ? $"Patcher v{ver.Major}.{ver.Minor}.{ver.Build}" : "";
         _ = RefreshAsync();
     }
 
     private static string Short(string sha) => string.IsNullOrEmpty(sha) ? "none" : (sha.Length >= 7 ? sha[..7] : sha);
+
+    // "v1.1.0 (69ad967)" when a human version is known, otherwise just the SHA.
+    private static string Pretty(string version, string sha) =>
+        string.IsNullOrEmpty(version) ? Short(sha) : $"v{version} ({Short(sha)})";
 
     private bool FolderValid =>
         !string.IsNullOrWhiteSpace(_settings.MacroQuestFolder)
@@ -47,12 +62,13 @@ public partial class MainWindow : Window
         ActionButton.IsEnabled = false;
         PatchNotesText.Text = "Checking...";
         var installed = _settings.InstalledSha;
-        var (hasNew, remoteSha, log) = await Task.Run(() => _service.CheckForUpdate(installed));
+        var (hasNew, remoteSha, remoteVersion, log) = await Task.Run(() => _service.CheckForUpdate(installed));
         _remoteSha = remoteSha;
+        _remoteVersion = remoteVersion;
         PatchNotesText.Text = log;
         StatusLine.Text = string.IsNullOrEmpty(installed)
-            ? $"Not installed yet · Available: {Short(remoteSha)}"
-            : $"Installed: {Short(installed)} · Available: {Short(remoteSha)} · {(hasNew ? "update available" : "up to date")}";
+            ? $"Not installed yet · Available: {Pretty(remoteVersion, remoteSha)}"
+            : $"Installed: {Pretty(_settings.InstalledVersion, installed)} · Available: {Pretty(remoteVersion, remoteSha)} · {(hasNew ? "update available" : "up to date")}";
         ActionButton.Content = string.IsNullOrEmpty(installed) ? "Install"
                               : hasNew ? "Update Now" : "Reinstall / Recheck";
         ActionButton.IsEnabled = true;
@@ -115,6 +131,7 @@ public partial class MainWindow : Window
             if (!string.IsNullOrEmpty(installedSha))
             {
                 _settings.InstalledSha = installedSha;
+                _settings.InstalledVersion = _remoteVersion;
                 _settings.Save();
             }
         }

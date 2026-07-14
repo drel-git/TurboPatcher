@@ -7,6 +7,7 @@ public class PatcherSettings
 {
     public string MacroQuestFolder { get; set; } = "";
     public string InstalledSha { get; set; } = "";
+    public string InstalledVersion { get; set; } = "";
 
     private static readonly string SettingsPath = Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
