@@ -35,9 +35,11 @@ installs and updates.
      (the newest 5 backups are kept, older ones pruned);
    - copies `lua/` and `Macros/` into the MacroQuest folder and copies `config/` **without overwriting**
      existing files (so your edited `.ini`s and other configs are preserved);
-   - **never touches** your runtime data in `config/` (`TurboGear_*.lua`, the
-     `_cache.lua`/`.db`, shared settings, BiS/watch lists) - those aren't in the
-     repo, so they're left alone;
+   - clears `config/TurboGear_dcat_*.lua` BiS disk caches so catalog content
+     updates apply after reload (settings, custom lists, and other `TurboGear_*.lua`
+     runtime data are left alone);
+   - **never touches** other runtime data in `config/` (shared settings, BiS/watch
+     lists, `_cache.lua`/`.db`) - those aren't in the repo, so they're left alone;
    - clears the lock so Turbo can run again;
    - records the installed commit SHA in `%AppData%\TurboPatcher\settings.json`.
 4. You reload Turbo in-game (`/lua run turbogear`).

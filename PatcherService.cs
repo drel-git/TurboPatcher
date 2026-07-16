@@ -210,6 +210,11 @@ public class PatcherService
             if (Directory.Exists(srcConfig))
                 copied += CopyTree(srcConfig, configFolder, backupDir, ConfigDir, overwrite: false, ct);
 
+            // BiS announce disk caches fingerprint catalog *shape* only; same-shape
+            // content edits (ID chains, notes) can leave stale TurboGear_dcat_*.lua.
+            // Safe to delete - they rebuild on next TurboGear load.
+            ClearTurboGearDcatCaches(configFolder, log);
+
             Report(1.0, $"Done - {copied} file(s) updated. Reload Turbo in-game (/lua run turbogear).");
             if (Directory.Exists(backupDir))
                 log.Report($"Replaced files backed up to: {backupDir}");
@@ -222,6 +227,31 @@ public class PatcherService
             try { if (File.Exists(lockFile)) File.Delete(lockFile); } catch { }
             try { if (Directory.Exists(tempRoot)) Directory.Delete(tempRoot, true); } catch { }
         }
+    }
+
+    // Drop TurboGear BiS disk caches so catalog content changes take effect
+    // after reload. Does not touch settings, lists, or other TurboGear_*.lua.
+    private static void ClearTurboGearDcatCaches(string configFolder, IProgress<string> log)
+    {
+        try
+        {
+            if (!Directory.Exists(configFolder)) return;
+            var files = Directory.GetFiles(configFolder, "TurboGear_dcat_*.lua");
+            if (files.Length == 0) return;
+            int removed = 0;
+            foreach (var path in files)
+            {
+                try
+                {
+                    File.Delete(path);
+                    removed++;
+                }
+                catch { /* best-effort per file */ }
+            }
+            if (removed > 0)
+                log.Report($"Cleared {removed} TurboGear BiS disk cache file(s) (dcat).");
+        }
+        catch { /* cache clearing is best-effort */ }
     }
 
     // Backups grow one timestamped folder per update; keep only the newest few.
