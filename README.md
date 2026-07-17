@@ -24,6 +24,13 @@ folder, and click **Install / Update**.
 When a newer patcher is on GitHub, use **Update Patcher** — it downloads and
 restarts into the new exe (browser download is only a fallback).
 
+From in-game, the Turbo update banner / mini **Update** button launches:
+
+`TurboPatcher.exe --mq "<your MQ root>" --update`
+
+so the suite update starts automatically after the version check. The big
+**Update Now** button stays pinned at the bottom of the window.
+
 ### Linux / Lutris (CLI)
 
 MacroQuest under Lutris lives in a Wine prefix. Download the CLI binary, make it

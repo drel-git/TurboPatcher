@@ -244,13 +244,18 @@ public class PatcherService
             return (true, "", "", "No commits found.", installedSha, installedVersion);
         var remote = commits[0].Sha;
         var (version, notes) = FetchChangelog();
-        bool hasNew;
-        if (!string.IsNullOrEmpty(installedSha))
-            hasNew = !string.Equals(remote, installedSha, StringComparison.OrdinalIgnoreCase);
-        else if (!string.IsNullOrEmpty(installedVersion) && !string.IsNullOrEmpty(version))
-            hasNew = !string.Equals(installedVersion.Trim(), version.Trim(), StringComparison.OrdinalIgnoreCase);
-        else
-            hasNew = true; // unknown local state → offer install/update
+        var instVer = ParseVersion(installedVersion);
+        var remVer = ParseVersion(version);
+        bool shaDiffers = !string.IsNullOrEmpty(installedSha)
+            && !string.Equals(remote, installedSha, StringComparison.OrdinalIgnoreCase);
+        bool versionNewer = instVer is not null && remVer is not null && remVer > instVer;
+
+        // Unknown install → offer Install. Otherwise update if tip SHA moved OR
+        // remote CHANGELOG version is greater (covers stamp/version skew).
+        bool hasNew = string.IsNullOrEmpty(installedSha) && string.IsNullOrEmpty(installedVersion)
+            || shaDiffers
+            || versionNewer;
+
         return (hasNew, remote, version, notes.Length > 0 ? notes : BuildLog(commits),
             installedSha, installedVersion);
     }

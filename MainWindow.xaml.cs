@@ -4,6 +4,7 @@ using System.Windows;
 using System.Windows.Forms;
 using System.Windows.Input;
 using System.Diagnostics;
+using System.Windows.Media;
 using System.Windows.Navigation;
 
 namespace TurboPatcher;
@@ -20,12 +21,17 @@ public partial class MainWindow : Window
     private string _installedVersion = "";
     private bool _busy;
     private string _selfLatestVersion = "";
+    private bool _autoUpdate;
+    private bool _hasNew;
+    private int _refreshGen;
 
     public MainWindow()
     {
         InitializeComponent();
         _settings = PatcherSettings.Load();
         LogItems.ItemsSource = _logEntries;
+        ParseLaunchArgs(Environment.GetCommandLineArgs());
+
         // First run: try to find the MacroQuest folder so new users don't have to.
         if (string.IsNullOrWhiteSpace(_settings.MacroQuestFolder))
         {
@@ -42,6 +48,30 @@ public partial class MainWindow : Window
         MaybeNoteRelaunchAfterSelfUpdate();
         _ = RefreshSelfUpdateAsync();
         _ = RefreshAsync();
+    }
+
+    private void ParseLaunchArgs(string[] args)
+    {
+        for (var i = 1; i < args.Length; i++)
+        {
+            var a = args[i];
+            if (a is "--update" or "-update" or "/update")
+            {
+                _autoUpdate = true;
+                continue;
+            }
+            if ((a is "--mq" or "-mq") && i + 1 < args.Length)
+            {
+                var mq = args[++i].Trim().Trim('"');
+                if (!string.IsNullOrWhiteSpace(mq) && PatcherService.IsMqFolder(mq))
+                {
+                    _settings.MacroQuestFolder = mq;
+                    _settings.Save();
+                }
+            }
+        }
+        if (_autoUpdate)
+            AppendLog("Launched with --update (will apply suite update if one is available).");
     }
 
     private void MaybeNoteRelaunchAfterSelfUpdate()
@@ -156,24 +186,30 @@ public partial class MainWindow : Window
     private async Task RefreshAsync()
     {
         if (_busy) return;
+        var gen = ++_refreshGen;
         if (!FolderValid)
         {
             PatchNotesText.Text = "Pick your MacroQuest folder (the one containing 'lua' and 'Macros').";
             StatusLine.Text = "Select your MacroQuest folder to begin.";
+            ActionHint.Text = "";
             ActionButton.Content = "Check for Updates";
             ActionButton.IsEnabled = false;
             return;
         }
 
         ActionButton.IsEnabled = false;
+        ActionHint.Text = "Checking GitHub for updates...";
         PatchNotesText.Text = "Checking...";
         var mq = _settings.MacroQuestFolder;
         var (hasNew, remoteSha, remoteVersion, log, installedSha, installedVersion) =
             await Task.Run(() => _service.CheckForUpdate(mq, _settings.InstalledSha, _settings.InstalledVersion));
+        if (gen != _refreshGen) return; // superseded by a newer refresh
+
         _remoteSha = remoteSha;
         _remoteVersion = remoteVersion;
         _installedSha = installedSha;
         _installedVersion = installedVersion;
+        _hasNew = hasNew;
         // Keep AppData in sync with what we resolved from disk.
         if (!string.IsNullOrEmpty(installedSha) && installedSha != _settings.InstalledSha)
         {
@@ -187,13 +223,47 @@ public partial class MainWindow : Window
             _settings.Save();
         }
         PatchNotesText.Text = log;
-        StatusLine.Text = string.IsNullOrEmpty(installedSha) && string.IsNullOrEmpty(installedVersion)
-            ? $"Not installed yet · Available: {Pretty(remoteVersion, remoteSha)}"
-            : $"Installed: {Pretty(installedVersion, installedSha)} · Available: {Pretty(remoteVersion, remoteSha)} · {(hasNew ? "update available" : "up to date")}";
-        ActionButton.Content = string.IsNullOrEmpty(installedSha) && string.IsNullOrEmpty(installedVersion)
-            ? "Install"
-            : hasNew ? "Update Now" : "Reinstall / Recheck";
+
+        var notInstalled = string.IsNullOrEmpty(installedSha) && string.IsNullOrEmpty(installedVersion);
+        if (notInstalled)
+        {
+            StatusLine.Text = $"Not installed yet.\nAvailable: {Pretty(remoteVersion, remoteSha)}";
+            StatusLine.Foreground = new SolidColorBrush(System.Windows.Media.Color.FromRgb(0x9f, 0xb8, 0xc0));
+            ActionButton.Content = "Install Turbo Suite";
+            ActionHint.Text = "Click Install to copy the latest Turbo files into your MacroQuest folder.";
+        }
+        else if (hasNew)
+        {
+            StatusLine.Text =
+                $"Installed: {Pretty(installedVersion, installedSha)}\n" +
+                $"Available: {Pretty(remoteVersion, remoteSha)} — update available";
+            StatusLine.Foreground = new SolidColorBrush(System.Windows.Media.Color.FromRgb(0xff, 0xc2, 0x4a));
+            ActionButton.Content = "Update Now";
+            ActionHint.Text = "Click Update Now to install the latest suite, then reload Turbo in-game.";
+        }
+        else
+        {
+            StatusLine.Text =
+                $"Installed: {Pretty(installedVersion, installedSha)}\n" +
+                $"Available: {Pretty(remoteVersion, remoteSha)} — up to date";
+            StatusLine.Foreground = new SolidColorBrush(System.Windows.Media.Color.FromRgb(0x9f, 0xb8, 0xc0));
+            ActionButton.Content = "Reinstall / Recheck";
+            ActionHint.Text = "You are on the latest suite. Reinstall forces a fresh copy from GitHub.";
+        }
         ActionButton.IsEnabled = true;
+
+        if (_autoUpdate && hasNew && !_busy)
+        {
+            _autoUpdate = false; // one-shot
+            AppendLog("Auto-update requested — starting suite update...");
+            ActionButton_Click(ActionButton, new RoutedEventArgs());
+        }
+        else if (_autoUpdate && !hasNew)
+        {
+            _autoUpdate = false;
+            AppendLog("Auto-update requested, but the suite is already up to date.");
+            ActionHint.Text = "Already up to date — no suite update needed.";
+        }
     }
 
     private void TitleBar_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
@@ -266,6 +336,7 @@ public partial class MainWindow : Window
 
         ActionButton.IsEnabled = false;
         ActionButton.Content = "Working...";
+        ActionHint.Text = "Updating files — Turbo scripts will pause via patch lock...";
         _logEntries.Clear();
 
         var progress = new Progress<(double Percent, string Status)>(t => StatusLine.Text = t.Status);
@@ -281,6 +352,7 @@ public partial class MainWindow : Window
                 _settings.Save();
             }
             StatusLine.Text = "Done. Reload on each box: /lua run Turbo  and  /lua run turbogear";
+            ActionHint.Text = "Update finished. Reload Turbo / TurboGear in-game on every character.";
         }
         catch (OperationCanceledException) { AppendLog("Cancelled."); }
         catch (Exception ex) { AppendLog($"[error] {ex.Message}"); }

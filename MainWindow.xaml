@@ -346,6 +346,7 @@
                                    Foreground="#FF9fb8c0"
                                    FontFamily="Segoe UI"
                                    FontSize="11"
+                                   TextWrapping="Wrap"
                                    Text="Select your MacroQuest folder to begin."/>
 
                         <TextBlock Text="What's New"
@@ -354,12 +355,12 @@
                                    FontSize="11"
                                    Margin="0,12,0,4"/>
 
-                        <Border Height="200"
+                        <Border Height="160"
                                 Background="#88060e0a"
                                 BorderBrush="#FF2a8ba0"
                                 BorderThickness="1"
                                 CornerRadius="3"
-                                Margin="0,0,0,10">
+                                Margin="0,0,0,8">
 
                             <ScrollViewer VerticalScrollBarVisibility="Auto"
                                           HorizontalScrollBarVisibility="Disabled"
@@ -377,17 +378,31 @@
 
                         </Border>
 
+                    </StackPanel>
+
+                    <!-- Always pinned above the log so Update Now cannot scroll/clip away -->
+                    <StackPanel DockPanel.Dock="Bottom"
+                                Margin="0,0,0,8">
+
                         <Button x:Name="ActionButton"
                                 Content="Check for Updates"
                                 Style="{StaticResource PatcherButton}"
                                 BorderBrush="#FFD49A2A"
                                 Foreground="#FFE8DCC8"
+                                Background="#CC1a4a38"
                                 HorizontalAlignment="Stretch"
-                                Height="36"
+                                Height="40"
+                                FontSize="14"
+                                FontWeight="SemiBold"
                                 Click="ActionButton_Click"/>
 
-                        <Separator Background="#442a8ba0"
-                                   Margin="0,12,0,12"/>
+                        <TextBlock x:Name="ActionHint"
+                                   Margin="0,6,0,0"
+                                   Foreground="#FF7a8a90"
+                                   FontFamily="Segoe UI"
+                                   FontSize="10"
+                                   TextWrapping="Wrap"
+                                   Text=""/>
 
                     </StackPanel>
 
