@@ -304,8 +304,8 @@
 
                                 <Button x:Name="SelfUpdateButton"
                                         Grid.Column="1"
-                                        Content="Download"
-                                        MinWidth="88"
+                                        Content="Update Patcher"
+                                        MinWidth="110"
                                         Style="{StaticResource PatcherButton}"
                                         BorderBrush="#FFD49A2A"
                                         Click="SelfUpdateButton_Click"/>

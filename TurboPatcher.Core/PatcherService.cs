@@ -42,11 +42,94 @@ public class PatcherService
     // Keep this many timestamped backup folders; older ones are pruned.
     private const int BackupsToKeep = 5;
 
+    public const string InstallStampFileName = "turbo_install.json";
+
     private static HttpClient NewHttp()
     {
         var h = new HttpClient { Timeout = TimeSpan.FromMinutes(5) };
         h.DefaultRequestHeaders.Add("User-Agent", "TurboPatcher");
         return h;
+    }
+
+    public static string InstallStampPath(string mqFolder) =>
+        Path.Combine(mqFolder, "config", InstallStampFileName);
+
+    /// <summary>SHA + version recorded in MQ config after a successful Patch.</summary>
+    public static (string Sha, string Version) ReadInstallStamp(string? mqFolder)
+    {
+        if (string.IsNullOrWhiteSpace(mqFolder)) return ("", "");
+        try
+        {
+            var path = InstallStampPath(mqFolder);
+            if (!File.Exists(path)) return ("", "");
+            using var doc = JsonDocument.Parse(File.ReadAllText(path));
+            var root = doc.RootElement;
+            var sha = root.TryGetProperty("sha", out var s) ? (s.GetString() ?? "") : "";
+            var version = root.TryGetProperty("version", out var v) ? (v.GetString() ?? "") : "";
+            return (sha.Trim(), version.Trim());
+        }
+        catch { return ("", ""); }
+    }
+
+    public static void WriteInstallStamp(string mqFolder, string sha, string version)
+    {
+        try
+        {
+            var configFolder = Path.Combine(mqFolder, "config");
+            Directory.CreateDirectory(configFolder);
+            var payload = new Dictionary<string, object?>
+            {
+                ["sha"] = sha ?? "",
+                ["version"] = version ?? "",
+                ["installedAt"] = DateTimeOffset.Now.ToString("o"),
+            };
+            var json = JsonSerializer.Serialize(payload, new JsonSerializerOptions { WriteIndented = true });
+            File.WriteAllText(InstallStampPath(mqFolder), json);
+        }
+        catch { /* stamp is best-effort */ }
+    }
+
+    /// <summary>First x.y / x.y.z line from the installed CHANGELOG, if present.</summary>
+    public static string ReadLocalChangelogVersion(string? mqFolder)
+    {
+        if (string.IsNullOrWhiteSpace(mqFolder)) return "";
+        try
+        {
+            var path = Path.Combine(mqFolder, "lua", "turbogear", "CHANGELOG");
+            if (!File.Exists(path)) return "";
+            foreach (var raw in File.ReadLines(path))
+            {
+                var line = raw.Trim();
+                if (System.Text.RegularExpressions.Regex.IsMatch(line, @"^\d+\.\d+"))
+                    return line;
+            }
+        }
+        catch { }
+        return "";
+    }
+
+    /// <summary>
+    /// Prefer MQ install stamp, then local CHANGELOG version (sha empty), then AppData.
+    /// </summary>
+    public static (string Sha, string Version) ResolveInstalledSuite(
+        string? mqFolder, string appDataSha, string appDataVersion)
+    {
+        var (stampSha, stampVer) = ReadInstallStamp(mqFolder);
+        if (!string.IsNullOrEmpty(stampSha))
+            return (stampSha, !string.IsNullOrEmpty(stampVer) ? stampVer : ReadLocalChangelogVersion(mqFolder));
+
+        var changelogVer = ReadLocalChangelogVersion(mqFolder);
+        if (!string.IsNullOrEmpty(changelogVer))
+        {
+            // Have files on disk but no stamp (manual zip / wiped AppData): treat as installed
+            // by version only; SHA compare will still show "update available" until next Patch
+            // writes a stamp — unless AppData SHA matches remote.
+            if (!string.IsNullOrEmpty(appDataSha))
+                return (appDataSha, !string.IsNullOrEmpty(appDataVersion) ? appDataVersion : changelogVer);
+            return ("", changelogVer);
+        }
+
+        return (appDataSha ?? "", appDataVersion ?? "");
     }
 
     // ---- first-run MacroQuest folder detection --------------------------------
@@ -143,18 +226,33 @@ public class PatcherService
         catch { return ("", ""); }
     }
 
-    // Returns whether the remote head differs from the installed SHA, the remote
+    // Returns whether the remote head differs from the installed suite, the remote
     // SHA + human version (when the CHANGELOG exposes one), and patch notes.
-    public (bool HasNew, string RemoteSha, string RemoteVersion, string Log) CheckForUpdate(string installedSha)
+    // Prefer mqFolder install stamp / local CHANGELOG over AppData alone.
+    public (bool HasNew, string RemoteSha, string RemoteVersion, string Log, string InstalledSha, string InstalledVersion)
+        CheckForUpdate(string? mqFolder, string appDataSha = "", string appDataVersion = "")
     {
+        var (installedSha, installedVersion) = ResolveInstalledSuite(mqFolder, appDataSha, appDataVersion);
         List<(string Sha, string Date, string Message)> commits;
         try { commits = FetchCommits(15); }
-        catch { return (true, "", "", "Could not reach the Turbo repository (check your connection)."); }
-        if (commits.Count == 0) return (true, "", "", "No commits found.");
+        catch
+        {
+            return (true, "", "", "Could not reach the Turbo repository (check your connection).",
+                installedSha, installedVersion);
+        }
+        if (commits.Count == 0)
+            return (true, "", "", "No commits found.", installedSha, installedVersion);
         var remote = commits[0].Sha;
-        bool hasNew = !string.Equals(remote, installedSha, StringComparison.OrdinalIgnoreCase);
         var (version, notes) = FetchChangelog();
-        return (hasNew, remote, version, notes.Length > 0 ? notes : BuildLog(commits));
+        bool hasNew;
+        if (!string.IsNullOrEmpty(installedSha))
+            hasNew = !string.Equals(remote, installedSha, StringComparison.OrdinalIgnoreCase);
+        else if (!string.IsNullOrEmpty(installedVersion) && !string.IsNullOrEmpty(version))
+            hasNew = !string.Equals(installedVersion.Trim(), version.Trim(), StringComparison.OrdinalIgnoreCase);
+        else
+            hasNew = true; // unknown local state → offer install/update
+        return (hasNew, remote, version, notes.Length > 0 ? notes : BuildLog(commits),
+            installedSha, installedVersion);
     }
 
     /// <summary>This running patcher's Assembly version as major.minor.build.</summary>
@@ -280,7 +378,14 @@ public class PatcherService
             // Safe to delete - they rebuild on next TurboGear load.
             ClearTurboGearDcatCaches(configFolder, log);
 
-            Report(1.0, $"Done - {copied} file(s) updated. Reload Turbo in-game (/lua run turbogear).");
+            var (_, remoteNotesVersion) = FetchChangelog();
+            var stampVersion = !string.IsNullOrEmpty(remoteNotesVersion)
+                ? remoteNotesVersion
+                : ReadLocalChangelogVersion(mqFolder);
+            WriteInstallStamp(mqFolder, remoteSha, stampVersion);
+
+            Report(1.0, $"Done - {copied} file(s) updated.");
+            log.Report("Reload on each box: /lua run Turbo  and  /lua run turbogear");
             if (Directory.Exists(backupDir))
                 log.Report($"Replaced files backed up to: {backupDir}");
             PruneBackups(Path.Combine(configFolder, "TurboPatcher_backup"), log);
@@ -292,6 +397,90 @@ public class PatcherService
             try { if (File.Exists(lockFile)) File.Delete(lockFile); } catch { }
             try { if (Directory.Exists(tempRoot)) Directory.Delete(tempRoot, true); } catch { }
         }
+    }
+
+    /// <summary>
+    /// Download the latest patcher binary to a temp folder. Caller swaps it in
+    /// (Windows cannot overwrite a running exe).
+    /// </summary>
+    public async Task<string> DownloadLatestPatcherAsync(IProgress<string>? log, CancellationToken ct)
+    {
+        var dir = Path.Combine(Path.GetTempPath(), "TurboPatcher_update");
+        Directory.CreateDirectory(dir);
+        var fileName = OperatingSystem.IsWindows() ? "TurboPatcher.exe" : "TurboPatcher-linux-x64";
+        var dest = Path.Combine(dir, fileName);
+        log?.Report($"Downloading {PatcherDownloadUrl} ...");
+        using var http = NewHttp();
+        using var resp = await http.GetAsync(PatcherDownloadUrl, HttpCompletionOption.ResponseHeadersRead, ct);
+        resp.EnsureSuccessStatusCode();
+        await using (var fs = File.Create(dest))
+            await resp.Content.CopyToAsync(fs, ct);
+        log?.Report($"Downloaded to {dest}");
+        return dest;
+    }
+
+    /// <summary>
+    /// Write a helper script that waits for <paramref name="pid"/> to exit, replaces
+    /// <paramref name="targetExe"/> with <paramref name="newExe"/>, then relaunches.
+    /// Returns the helper path (caller starts it then exits).
+    /// </summary>
+    public static string WriteWindowsSelfUpdateHelper(int pid, string newExe, string targetExe, string? workingDir)
+    {
+        var dir = Path.GetDirectoryName(newExe) ?? Path.GetTempPath();
+        var helper = Path.Combine(dir, "turbo_patcher_self_update.cmd");
+        workingDir ??= Path.GetDirectoryName(targetExe) ?? dir;
+        // Use ping as a short wait loop; copy /Y then start the new exe.
+        var content = $"""
+            @echo off
+            setlocal
+            :wait
+            tasklist /FI "PID eq {pid}" 2>NUL | find "{pid}" >NUL
+            if not errorlevel 1 (
+              ping -n 2 127.0.0.1 >NUL
+              goto wait
+            )
+            ping -n 2 127.0.0.1 >NUL
+            copy /Y "{newExe}" "{targetExe}" >NUL
+            if errorlevel 1 (
+              echo TurboPatcher self-update failed to replace the exe.
+              pause
+              exit /b 1
+            )
+            start "" /D "{workingDir}" "{targetExe}"
+            del "%~f0" >NUL 2>&1
+            endlocal
+            """;
+        File.WriteAllText(helper, content);
+        return helper;
+    }
+
+    /// <summary>
+    /// Linux: download latest binary and replace this process's exe via rename dance.
+    /// Returns true when replacement was staged (caller should Environment.Exit).
+    /// </summary>
+    public async Task ApplyLinuxSelfUpdateAsync(IProgress<string>? log, CancellationToken ct)
+    {
+        if (!OperatingSystem.IsLinux())
+            throw new InvalidOperationException("Linux self-update only.");
+        var current = Environment.ProcessPath
+            ?? throw new InvalidOperationException("Could not resolve current executable path.");
+        var downloaded = await DownloadLatestPatcherAsync(log, ct);
+        var dir = Path.GetDirectoryName(current) ?? ".";
+        var backup = current + ".old";
+        var staged = Path.Combine(dir, Path.GetFileName(current) + ".new");
+        File.Copy(downloaded, staged, overwrite: true);
+        try { if (File.Exists(backup)) File.Delete(backup); } catch { }
+        File.Move(current, backup);
+        File.Move(staged, current);
+        try
+        {
+            // Match typical publish permissions (executable).
+            var mode = Convert.ToInt32("755", 8);
+            File.SetUnixFileMode(current, (UnixFileMode)mode);
+        }
+        catch { }
+        log?.Report($"Replaced {current}. Re-run TurboPatcher to use the new version.");
+        try { File.Delete(backup); } catch { }
     }
 
     // Drop TurboGear BiS disk caches so catalog content changes take effect

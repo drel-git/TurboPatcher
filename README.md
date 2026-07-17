@@ -21,6 +21,9 @@ TurboGive, TurboMobs, and more) into your MacroQuest folder.
 Download the self-contained `TurboPatcher.exe`, point it at your MacroQuest
 folder, and click **Install / Update**.
 
+When a newer patcher is on GitHub, use **Update Patcher** — it downloads and
+restarts into the new exe (browser download is only a fallback).
+
 ### Linux / Lutris (CLI)
 
 MacroQuest under Lutris lives in a Wine prefix. Download the CLI binary, make it
@@ -32,17 +35,29 @@ Wine prefix** / **Browse files**):
 chmod +x TurboPatcher-linux-x64
 ./TurboPatcher-linux-x64 update --mq "/path/to/your/MQ/root"
 ./TurboPatcher-linux-x64 check --mq "/path/to/your/MQ/root"
+./TurboPatcher-linux-x64 self-update   # replace this CLI binary when behind
 ```
+
+## Updating (smooth path)
+
+1. **In game:** Turbo shows a banner when GitHub has a newer suite version
+   (`More` → optional “Check for Turbo updates”). Click **Update** or run
+   `/turbopatcher`.
+2. **Patcher:** If the patcher itself is behind, click **Update Patcher** first,
+   then **Update Now** for the suite.
+3. **Reload** on each box: `/lua run Turbo` and `/lua run turbogear`.
 
 ## What it does
 
 1. On first run (Windows), auto-detects the MacroQuest folder when possible.
 2. Shows patch notes from `lua/turbogear/CHANGELOG` (falling back to commit
    history) and installed vs available suite version.
-3. Checks GitHub for a newer **patcher** than the one you are running
-   (Windows banner + Download; CLI prints a note). Soft-fails offline; suite
+3. Resolves “installed” from `config/turbo_install.json` (written after each
+   successful patch), then local CHANGELOG, then AppData settings.
+4. Checks GitHub for a newer **patcher** than the one you are running
+   (Windows in-place self-update; CLI `self-update`). Soft-fails offline; suite
    updates still work on an older patcher.
-4. On **Install / Update**:
+5. On **Install / Update**:
    - drops `config/turbo_patch.lock` so any running Turbo **self-stops on every
      box** (shared config dir; see the patch-lock hook in TurboGear);
    - downloads the latest `main` source zip from GitHub;
@@ -51,11 +66,11 @@ chmod +x TurboPatcher-linux-x64
    - copies `lua/` and `Macros/` (overwrite) and `config/` **without overwriting**
      existing files;
    - clears `config/TurboGear_dcat_*.lua` BiS disk caches;
-   - leaves other runtime `config/` data alone;
-   - records the installed commit SHA in app settings
+   - writes `config/turbo_install.json` (sha + version);
+   - also records the installed commit SHA in app settings
      (`%AppData%\TurboPatcher\settings.json` on Windows,
      `~/.config/TurboPatcher/settings.json` on Linux).
-5. Reload Turbo in-game (`/lua run turbogear`).
+6. Reload Turbo in-game (`/lua run Turbo` and `/lua run turbogear`).
 
 ## Configuration
 
@@ -80,10 +95,6 @@ dotnet publish TurboPatcher.Cli/TurboPatcher.Cli.csproj -c Release -r linux-x64 
 # rename publish output TurboPatcher -> TurboPatcher-linux-x64 for distribution
 ```
 
-## Notes
+## License
 
-- Core logic is shared (`TurboPatcher.Core`); no third-party packages.
-- Unsigned Windows exes can trigger SmartScreen on first run.
-- The patch-lock shutdown is handled by TurboGear when it is running.
-
-Loot up.
+See the repository for license details.

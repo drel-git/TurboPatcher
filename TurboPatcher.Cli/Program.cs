@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using TurboPatcher;
 
 // Exit codes: 0 = ok / up to date, 1 = error, 2 = update available
@@ -14,6 +15,7 @@ static void PrintHelp()
     Console.WriteLine("  TurboPatcher check [--mq PATH]     Check suite + this patcher version");
     Console.WriteLine("  TurboPatcher update [--mq PATH]    Install / update Turbo into MQ folder");
     Console.WriteLine("  TurboPatcher self-check            Check only this patcher vs GitHub latest");
+    Console.WriteLine("  TurboPatcher self-update           Download and replace this patcher binary");
     Console.WriteLine("  TurboPatcher --help");
     Console.WriteLine();
     Console.WriteLine("Options:");
@@ -70,18 +72,62 @@ try
             Console.WriteLine($"Patcher latest: v{self.LatestVersion}");
             if (self.UpdateAvailable)
             {
-                Console.WriteLine($"Update available. Download: {self.DownloadUrl}");
+                Console.WriteLine($"Update available. Run: TurboPatcher self-update");
+                Console.WriteLine($"Or download: {self.DownloadUrl}");
                 return ExitUpdateAvailable;
             }
             Console.WriteLine("Patcher is up to date.");
             return ExitOk;
         }
 
+        case "self-update":
+        case "selfupdate":
+        {
+            var self = service.CheckSelfUpdate();
+            if (!self.UpdateAvailable)
+            {
+                if (string.IsNullOrEmpty(self.LatestVersion))
+                {
+                    Console.Error.WriteLine("Could not reach GitHub to check for patcher updates.");
+                    return ExitError;
+                }
+                Console.WriteLine($"Already up to date (v{self.LocalVersion}).");
+                return ExitOk;
+            }
+            Console.WriteLine($"Updating patcher v{self.LocalVersion} → v{self.LatestVersion}...");
+            var log = new Progress<string>(Console.WriteLine);
+            if (OperatingSystem.IsLinux())
+            {
+                await service.ApplyLinuxSelfUpdateAsync(log, CancellationToken.None);
+                Console.WriteLine("Done. Re-run TurboPatcher.");
+                return ExitOk;
+            }
+            if (OperatingSystem.IsWindows())
+            {
+                var downloaded = await service.DownloadLatestPatcherAsync(log, CancellationToken.None);
+                var target = Environment.ProcessPath
+                    ?? throw new InvalidOperationException("Could not resolve current executable path.");
+                var helper = PatcherService.WriteWindowsSelfUpdateHelper(
+                    Environment.ProcessId, downloaded, target, Path.GetDirectoryName(target));
+                Process.Start(new ProcessStartInfo
+                {
+                    FileName = helper,
+                    UseShellExecute = true,
+                    CreateNoWindow = true,
+                });
+                Console.WriteLine("Restarting into the new patcher...");
+                // Must exit so the helper can replace this binary.
+                Environment.Exit(ExitOk);
+            }
+            Console.Error.WriteLine($"Unsupported OS for self-update. Download: {self.DownloadUrl}");
+            return ExitError;
+        }
+
         case "check":
         {
             var self = service.CheckSelfUpdate();
             if (self.UpdateAvailable)
-                Console.WriteLine($"Patcher update available: v{self.LocalVersion} → v{self.LatestVersion}");
+                Console.WriteLine($"Patcher update available: v{self.LocalVersion} → v{self.LatestVersion} (run: self-update)");
             else if (!string.IsNullOrEmpty(self.LatestVersion))
                 Console.WriteLine($"Patcher v{self.LocalVersion} (up to date)");
             else
@@ -96,17 +142,26 @@ try
 
             settings.MacroQuestFolder = mq;
             settings.Save();
-            var (hasNew, remoteSha, remoteVersion, log) = service.CheckForUpdate(settings.InstalledSha);
+            var (hasNew, remoteSha, remoteVersion, log, installedSha, installedVersion) =
+                service.CheckForUpdate(mq, settings.InstalledSha, settings.InstalledVersion);
+            if (!string.IsNullOrEmpty(installedSha))
+            {
+                settings.InstalledSha = installedSha;
+                settings.InstalledVersion = installedVersion;
+                settings.Save();
+            }
             var shortSha = string.IsNullOrEmpty(remoteSha) ? "?" : (remoteSha.Length >= 7 ? remoteSha[..7] : remoteSha);
             var avail = string.IsNullOrEmpty(remoteVersion) ? shortSha : $"v{remoteVersion} ({shortSha})";
-            if (string.IsNullOrEmpty(settings.InstalledSha))
+            if (string.IsNullOrEmpty(installedSha) && string.IsNullOrEmpty(installedVersion))
                 Console.WriteLine($"Suite: not installed · Available: {avail}");
             else
             {
-                var instShort = settings.InstalledSha.Length >= 7 ? settings.InstalledSha[..7] : settings.InstalledSha;
-                var inst = string.IsNullOrEmpty(settings.InstalledVersion)
+                var instShort = string.IsNullOrEmpty(installedSha)
+                    ? "no-sha"
+                    : (installedSha.Length >= 7 ? installedSha[..7] : installedSha);
+                var inst = string.IsNullOrEmpty(installedVersion)
                     ? instShort
-                    : $"v{settings.InstalledVersion} ({instShort})";
+                    : $"v{installedVersion} ({instShort})";
                 Console.WriteLine($"Suite installed: {inst} · Available: {avail} · {(hasNew ? "update available" : "up to date")}");
             }
             if (!string.IsNullOrWhiteSpace(log))
@@ -128,6 +183,7 @@ try
             if (self.UpdateAvailable)
             {
                 Console.WriteLine($"Note: this patcher is behind (v{self.LocalVersion} → v{self.LatestVersion}).");
+                Console.WriteLine("Run: TurboPatcher self-update   (or download from the URL below)");
                 Console.WriteLine($"Download: {self.DownloadUrl}");
                 Console.WriteLine("Continuing with suite update...");
             }
@@ -143,7 +199,7 @@ try
             settings.MacroQuestFolder = mq;
             settings.Save();
 
-            var check = service.CheckForUpdate(settings.InstalledSha);
+            var check = service.CheckForUpdate(mq, settings.InstalledSha, settings.InstalledVersion);
             var progress = new Progress<(double Percent, string Status)>(t =>
                 Console.WriteLine($"[{t.Percent * 100:0}%] {t.Status}"));
             var log = new Progress<string>(Console.WriteLine);
@@ -155,7 +211,7 @@ try
                 settings.InstalledVersion = check.RemoteVersion;
                 settings.Save();
             }
-            Console.WriteLine("Done. Reload Turbo in-game (/lua run turbogear).");
+            Console.WriteLine("Done. Reload on each box: /lua run Turbo  and  /lua run turbogear");
             return ExitOk;
         }
 
