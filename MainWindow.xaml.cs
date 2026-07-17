@@ -34,9 +34,52 @@ public partial class MainWindow : Window
             }
         }
         MqDirTextBox.Text = _settings.MacroQuestFolder;
-        var ver = System.Reflection.Assembly.GetEntryAssembly()?.GetName().Version;
-        VersionText.Text = ver is { Major: > 0 } ? $"Patcher v{ver.Major}.{ver.Minor}.{ver.Build}" : "";
+        var localVer = PatcherService.LocalPatcherVersionString();
+        VersionText.Text = string.IsNullOrEmpty(localVer) ? "" : $"Patcher v{localVer}";
+        _ = RefreshSelfUpdateAsync();
         _ = RefreshAsync();
+    }
+
+    private async Task RefreshSelfUpdateAsync()
+    {
+        try
+        {
+            var result = await Task.Run(() => _service.CheckSelfUpdate());
+            if (!result.UpdateAvailable)
+            {
+                SelfUpdateBanner.Visibility = Visibility.Collapsed;
+                return;
+            }
+            SelfUpdateText.Text =
+                $"Patcher update available: you have v{result.LocalVersion}, latest is v{result.LatestVersion}. " +
+                "Suite updates still work — download the new patcher for the newest installer features.";
+            SelfUpdateBanner.Visibility = Visibility.Visible;
+            AppendLog($"Patcher update available: v{result.LocalVersion} → v{result.LatestVersion}");
+        }
+        catch
+        {
+            SelfUpdateBanner.Visibility = Visibility.Collapsed;
+        }
+    }
+
+    private void SelfUpdateButton_Click(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            Process.Start(new ProcessStartInfo
+            {
+                FileName = PatcherService.PatcherDownloadUrl,
+                UseShellExecute = true
+            });
+        }
+        catch (Exception ex)
+        {
+            System.Windows.MessageBox.Show(
+                $"Could not open the download link.\n\n{ex.Message}",
+                "Turbo Patcher",
+                MessageBoxButton.OK,
+                MessageBoxImage.Warning);
+        }
     }
 
     private static string Short(string sha) => string.IsNullOrEmpty(sha) ? "none" : (sha.Length >= 7 ? sha[..7] : sha);

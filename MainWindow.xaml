@@ -275,6 +275,45 @@
 
                     <StackPanel DockPanel.Dock="Top">
 
+                        <!-- Shown when this exe is behind GitHub latest release -->
+                        <Border x:Name="SelfUpdateBanner"
+                                Visibility="Collapsed"
+                                Background="#332a1800"
+                                BorderBrush="#FFD49A2A"
+                                BorderThickness="1"
+                                CornerRadius="3"
+                                Padding="10,8"
+                                Margin="0,0,0,10">
+
+                            <Grid>
+
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+
+                                <TextBlock x:Name="SelfUpdateText"
+                                           Grid.Column="0"
+                                           VerticalAlignment="Center"
+                                           Foreground="#FFFFC24A"
+                                           FontFamily="Segoe UI"
+                                           FontSize="11"
+                                           TextWrapping="Wrap"
+                                           Margin="0,0,10,0"
+                                           Text="A newer Turbo Patcher is available."/>
+
+                                <Button x:Name="SelfUpdateButton"
+                                        Grid.Column="1"
+                                        Content="Download"
+                                        MinWidth="88"
+                                        Style="{StaticResource PatcherButton}"
+                                        BorderBrush="#FFD49A2A"
+                                        Click="SelfUpdateButton_Click"/>
+
+                            </Grid>
+
+                        </Border>
+
                         <TextBlock Text="MacroQuest Folder"
                                    Foreground="#FFe8b84a"
                                    FontFamily="Segoe UI"

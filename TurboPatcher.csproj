@@ -9,6 +9,7 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <AssemblyName>TurboPatcher</AssemblyName>
     <RootNamespace>TurboPatcher</RootNamespace>
+    <Version>1.0.4</Version>
     <ApplicationIcon>Assets\Turbo.ico</ApplicationIcon>
     <!-- Single-file distribution: every publish (CLI or Visual Studio) yields
          exactly one self-contained TurboPatcher.exe, nothing else to ship.

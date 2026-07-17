@@ -14,10 +14,17 @@ public class PatcherService
     private const string Owner  = "drel-git";
     private const string Repo   = "Turbo";      // public release mirror (dev happens in the private repo)
     private const string Branch = "main";
+    private const string PatcherRepo = "TurboPatcher";
 
     private static string ZipUrl       => $"https://github.com/{Owner}/{Repo}/archive/refs/heads/{Branch}.zip";
     private static string CommitsApi   => $"https://api.github.com/repos/{Owner}/{Repo}/commits";
     private static string ChangelogUrl => $"https://raw.githubusercontent.com/{Owner}/{Repo}/{Branch}/lua/turbogear/CHANGELOG";
+    private static string PatcherLatestApi =>
+        $"https://api.github.com/repos/{Owner}/{PatcherRepo}/releases/latest";
+
+    /// <summary>Stable download link; always the newest published TurboPatcher.exe.</summary>
+    public const string PatcherDownloadUrl =
+        "https://github.com/drel-git/TurboPatcher/releases/latest/download/TurboPatcher.exe";
 
     // Repo-root subtrees copied into the MacroQuest folder (program files).
     private static readonly string[] SyncDirs = { "lua", "Macros" };
@@ -142,6 +149,57 @@ public class PatcherService
         bool hasNew = !string.Equals(remote, installedSha, StringComparison.OrdinalIgnoreCase);
         var (version, notes) = FetchChangelog();
         return (hasNew, remote, version, notes.Length > 0 ? notes : BuildLog(commits));
+    }
+
+    /// <summary>This running patcher's Assembly version as major.minor.build.</summary>
+    public static string LocalPatcherVersionString()
+    {
+        var ver = System.Reflection.Assembly.GetEntryAssembly()?.GetName().Version
+                  ?? typeof(PatcherService).Assembly.GetName().Version;
+        if (ver is null) return "";
+        return $"{ver.Major}.{ver.Minor}.{ver.Build}";
+    }
+
+    private static Version? ParseVersion(string? text)
+    {
+        if (string.IsNullOrWhiteSpace(text)) return null;
+        text = text.Trim();
+        if (text.StartsWith('v') || text.StartsWith('V')) text = text[1..];
+        // Accept "1.0.3" or "1.0.3+meta"; ignore revision for comparison.
+        var core = text.Split('-', '+')[0];
+        return Version.TryParse(core, out var v) ? v : null;
+    }
+
+    /// <summary>
+    /// Compare this exe to GitHub's latest TurboPatcher release. Soft-fails
+    /// (UpdateAvailable=false) when the network/API is unreachable so suite
+    /// updates are never blocked.
+    /// </summary>
+    public (bool UpdateAvailable, string LocalVersion, string LatestVersion, string DownloadUrl)
+        CheckSelfUpdate()
+    {
+        var localStr = LocalPatcherVersionString();
+        var local = ParseVersion(localStr);
+        try
+        {
+            using var http = NewHttp();
+            http.DefaultRequestHeaders.Add("Accept", "application/vnd.github.v3+json");
+            var json = http.GetStringAsync(PatcherLatestApi).GetAwaiter().GetResult();
+            using var doc = JsonDocument.Parse(json);
+            var tag = doc.RootElement.GetProperty("tag_name").GetString() ?? "";
+            var latest = ParseVersion(tag);
+            var latestStr = latest is null ? tag.TrimStart('v', 'V') : $"{latest.Major}.{latest.Minor}.{latest.Build}";
+            if (local is null || latest is null)
+                return (false, localStr, latestStr, PatcherDownloadUrl);
+            // Compare major.minor.build only (Assembly often has Revision=0).
+            var localCmp = new Version(local.Major, local.Minor, Math.Max(local.Build, 0));
+            var latestCmp = new Version(latest.Major, latest.Minor, Math.Max(latest.Build, 0));
+            return (latestCmp > localCmp, localStr, latestStr, PatcherDownloadUrl);
+        }
+        catch
+        {
+            return (false, localStr, "", PatcherDownloadUrl);
+        }
     }
 
     // ---- patch / install -----------------------------------------------------
