@@ -253,32 +253,37 @@ public partial class MainWindow : Window
         var notInstalled = string.IsNullOrEmpty(installedSha) && string.IsNullOrEmpty(installedVersion);
         if (notInstalled)
         {
-            StatusLine.Text = $"Not installed yet.\nAvailable: {Pretty(remoteVersion, remoteSha)}";
+            StatusLine.Text = $"Not installed yet.\nLatest available: {Pretty(remoteVersion, remoteSha)}";
             StatusLine.Foreground = new SolidColorBrush(System.Windows.Media.Color.FromRgb(0x9f, 0xb8, 0xc0));
             ActionButton.Content = "Install Turbo Suite";
-            ActionHint.Text = "Click Install to copy the latest Turbo files into your MacroQuest folder.";
+            ActionHint.Text = "Click the gold button below to copy the latest Turbo files into your MacroQuest folder.";
+            ActionButton.Background = new SolidColorBrush(System.Windows.Media.Color.FromRgb(0xE8, 0xB8, 0x4A));
+            ActionButton.Foreground = new SolidColorBrush(System.Windows.Media.Color.FromRgb(0x1a, 0x12, 0x08));
         }
         else if (hasNew)
         {
             var from = string.IsNullOrEmpty(installedVersion) ? Short(installedSha) : $"v{installedVersion}";
             var to = string.IsNullOrEmpty(remoteVersion) ? Short(remoteSha) : $"v{remoteVersion}";
-            StatusLine.Text = $"Suite update ready:  {from}  ->  {to}";
+            StatusLine.Text = $"Update ready\nYou have {from}   |   Latest is {to}";
             StatusLine.Foreground = new SolidColorBrush(System.Windows.Media.Color.FromRgb(0xff, 0xc2, 0x4a));
             ActionButton.Content = "Update Now";
             ActionHint.Text = _relaunchedAfterSelfUpdate
-                ? "Patcher is current. Click Update Now to install the suite, then reload Turbo in-game."
-                : "Click Update Now to install the latest suite, then reload Turbo in-game.";
+                ? "Patcher is current. Click Update Now (gold button below), then reload Turbo in-game."
+                : "Click Update Now (gold button below), then reload Turbo in-game on every character.";
+            ActionButton.Background = new SolidColorBrush(System.Windows.Media.Color.FromRgb(0xE8, 0xB8, 0x4A));
+            ActionButton.Foreground = new SolidColorBrush(System.Windows.Media.Color.FromRgb(0x1a, 0x12, 0x08));
         }
         else
         {
             StatusLine.Text =
-                $"Installed: {Pretty(installedVersion, installedSha)}\n" +
-                $"Available: {Pretty(remoteVersion, remoteSha)} - up to date";
+                $"Up to date\nInstalled {Pretty(installedVersion, installedSha)}   |   Latest {Pretty(remoteVersion, remoteSha)}";
             StatusLine.Foreground = new SolidColorBrush(System.Windows.Media.Color.FromRgb(0x9f, 0xb8, 0xc0));
             ActionButton.Content = "Reinstall / Recheck";
             ActionHint.Text = _relaunchedAfterSelfUpdate
-                ? "Patcher updated. Suite is already current - nothing else to install."
-                : "You are on the latest suite. Reinstall forces a fresh copy from GitHub.";
+                ? "Patcher updated. Suite is already current."
+                : "Suite is current. Reinstall forces a fresh copy from GitHub.";
+            ActionButton.Background = new SolidColorBrush(System.Windows.Media.Color.FromArgb(0xCC, 0x1a, 0x4a, 0x38));
+            ActionButton.Foreground = new SolidColorBrush(System.Windows.Media.Color.FromRgb(0xE8, 0xDC, 0xC8));
         }
         ActionButton.IsEnabled = true;
         _relaunchedAfterSelfUpdate = false;

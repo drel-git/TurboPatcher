@@ -4,7 +4,7 @@
         Title="Turbo Patcher"
         Icon="Assets/Turbo.ico"
         Width="604"
-        Height="680"
+        Height="720"
         WindowStyle="None"
         AllowsTransparency="True"
         Background="Transparent"
@@ -269,13 +269,37 @@
 
                 </Grid>
 
-                <!-- Main content -->
+                <!-- Main content: bottom-docked CTA so Update Now never clips away -->
                 <DockPanel Margin="20,6,20,44"
                            LastChildFill="True">
 
+                    <StackPanel DockPanel.Dock="Bottom"
+                                Margin="0,8,0,4">
+
+                        <Button x:Name="ActionButton"
+                                Content="Check for Updates"
+                                Style="{StaticResource PatcherButton}"
+                                BorderBrush="#FFD49A2A"
+                                Foreground="#FF1a1208"
+                                Background="#FFE8B84A"
+                                HorizontalAlignment="Stretch"
+                                Height="48"
+                                FontSize="16"
+                                FontWeight="Bold"
+                                Click="ActionButton_Click"/>
+
+                        <TextBlock x:Name="ActionHint"
+                                   Margin="0,6,0,0"
+                                   Foreground="#FF9fb8c0"
+                                   FontFamily="Segoe UI"
+                                   FontSize="11"
+                                   TextWrapping="Wrap"
+                                   Text=""/>
+
+                    </StackPanel>
+
                     <StackPanel DockPanel.Dock="Top">
 
-                        <!-- Shown when this exe is behind GitHub latest release -->
                         <Border x:Name="SelfUpdateBanner"
                                 Visibility="Collapsed"
                                 Background="#332a1800"
@@ -342,42 +366,20 @@
                         </Grid>
 
                         <TextBlock x:Name="StatusLine"
-                                   Margin="0,8,0,0"
+                                   Margin="0,10,0,0"
                                    Foreground="#FF9fb8c0"
-                                   FontFamily="Segoe UI"
-                                   FontSize="12"
+                                   FontFamily="Segoe UI Semibold"
+                                   FontSize="13"
                                    TextWrapping="Wrap"
                                    Text="Select your MacroQuest folder to begin."/>
-
-                        <!-- Suite CTA sits under status so it never hides under the log -->
-                        <Button x:Name="ActionButton"
-                                Margin="0,10,0,0"
-                                Content="Check for Updates"
-                                Style="{StaticResource PatcherButton}"
-                                BorderBrush="#FFD49A2A"
-                                Foreground="#FFE8DCC8"
-                                Background="#CC1a4a38"
-                                HorizontalAlignment="Stretch"
-                                Height="42"
-                                FontSize="14"
-                                FontWeight="SemiBold"
-                                Click="ActionButton_Click"/>
-
-                        <TextBlock x:Name="ActionHint"
-                                   Margin="0,6,0,0"
-                                   Foreground="#FF7a8a90"
-                                   FontFamily="Segoe UI"
-                                   FontSize="11"
-                                   TextWrapping="Wrap"
-                                   Text=""/>
 
                         <TextBlock Text="What's New"
                                    Foreground="#FFe8b84a"
                                    FontFamily="Segoe UI Semibold"
                                    FontSize="11"
-                                   Margin="0,12,0,4"/>
+                                   Margin="0,10,0,4"/>
 
-                        <Border Height="140"
+                        <Border Height="110"
                                 Background="#88060e0a"
                                 BorderBrush="#FF2a8ba0"
                                 BorderThickness="1"

@@ -23,7 +23,8 @@ folder, and click **Install / Update**.
 
 When a newer patcher is on GitHub, use **Update Patcher** - it downloads and
 restarts into the new exe quietly (no console flash; browser download is only a
-fallback). After relaunch, **Update Now** sits under the status line for the suite.
+fallback). After relaunch, the gold **Update Now** button stays pinned at the
+bottom of the window for the suite.
 
 From in-game, the Turbo update banner / mini **Update** button launches:
 

@@ -48,6 +48,11 @@ public class PatcherService
     {
         var h = new HttpClient { Timeout = TimeSpan.FromMinutes(5) };
         h.DefaultRequestHeaders.Add("User-Agent", "TurboPatcher");
+        h.DefaultRequestHeaders.CacheControl = new System.Net.Http.Headers.CacheControlHeaderValue
+        {
+            NoCache = true,
+            NoStore = true,
+        };
         return h;
     }
 
