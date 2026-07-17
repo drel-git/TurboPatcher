@@ -27,7 +27,7 @@ jobs:
           $ver = "${{ github.ref_name }}" -replace '^v', ''
           echo "num=$ver" >> $env:GITHUB_OUTPUT
 
-      - name: Publish
+      - name: Publish Windows GUI
         run: >
           dotnet publish TurboPatcher.csproj
           -c Release
@@ -37,18 +37,31 @@ jobs:
           -p:IncludeNativeLibrariesForSelfExtract=true
           -p:PublishReadyToRun=true
           -p:Version=${{ steps.version.outputs.num }}
-          -o publish
+          -o publish-win
 
-      # Attach the bare exe: it is fully self-contained, so the release
-      # download is a single file players can run directly. The stable link
-      # releases/latest/download/TurboPatcher.exe always serves the newest one.
-      - name: Stage release asset
-        run: Copy-Item publish\TurboPatcher.exe TurboPatcher.exe
+      - name: Publish Linux CLI
+        run: >
+          dotnet publish TurboPatcher.Cli/TurboPatcher.Cli.csproj
+          -c Release
+          -r linux-x64
+          --self-contained true
+          -p:PublishSingleFile=true
+          -p:IncludeNativeLibrariesForSelfExtract=true
+          -p:PublishReadyToRun=true
+          -p:Version=${{ steps.version.outputs.num }}
+          -o publish-linux
+
+      - name: Stage release assets
+        run: |
+          Copy-Item publish-win\TurboPatcher.exe TurboPatcher.exe
+          Copy-Item publish-linux\TurboPatcher TurboPatcher-linux-x64
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          files: TurboPatcher.exe
+          files: |
+            TurboPatcher.exe
+            TurboPatcher-linux-x64
           name: Turbo Patcher ${{ github.ref_name }}
           generate_release_notes: true
           make_latest: true

@@ -2,4 +2,7 @@
 bin/
 obj/
 publish*/
+publish-*/
 *.user
+TurboPatcher.exe
+TurboPatcher-linux-x64

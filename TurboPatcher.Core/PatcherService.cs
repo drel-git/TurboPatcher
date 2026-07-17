@@ -22,9 +22,15 @@ public class PatcherService
     private static string PatcherLatestApi =>
         $"https://api.github.com/repos/{Owner}/{PatcherRepo}/releases/latest";
 
-    /// <summary>Stable download link; always the newest published TurboPatcher.exe.</summary>
-    public const string PatcherDownloadUrl =
+    public const string PatcherDownloadUrlWindows =
         "https://github.com/drel-git/TurboPatcher/releases/latest/download/TurboPatcher.exe";
+
+    public const string PatcherDownloadUrlLinux =
+        "https://github.com/drel-git/TurboPatcher/releases/latest/download/TurboPatcher-linux-x64";
+
+    /// <summary>Stable download link for this OS (Windows GUI exe or Linux CLI).</summary>
+    public static string PatcherDownloadUrl =>
+        OperatingSystem.IsWindows() ? PatcherDownloadUrlWindows : PatcherDownloadUrlLinux;
 
     // Repo-root subtrees copied into the MacroQuest folder (program files).
     private static readonly string[] SyncDirs = { "lua", "Macros" };
@@ -44,10 +50,10 @@ public class PatcherService
     }
 
     // ---- first-run MacroQuest folder detection --------------------------------
-    private static bool IsMqFolder(string? dir) =>
+    public static bool IsMqFolder(string? dir) =>
         !string.IsNullOrEmpty(dir)
-        && Directory.Exists(Path.Combine(dir, "lua"))
-        && Directory.Exists(Path.Combine(dir, "config"));
+        && Directory.Exists(Path.Combine(dir!, "lua"))
+        && Directory.Exists(Path.Combine(dir!, "config"));
 
     // Best-effort: a running MacroQuest process tells us exactly where it lives;
     // otherwise do a shallow scan of drive roots for well-known folder names.
@@ -189,12 +195,13 @@ public class PatcherService
             var tag = doc.RootElement.GetProperty("tag_name").GetString() ?? "";
             var latest = ParseVersion(tag);
             var latestStr = latest is null ? tag.TrimStart('v', 'V') : $"{latest.Major}.{latest.Minor}.{latest.Build}";
+            var url = PatcherDownloadUrl;
             if (local is null || latest is null)
-                return (false, localStr, latestStr, PatcherDownloadUrl);
+                return (false, localStr, latestStr, url);
             // Compare major.minor.build only (Assembly often has Revision=0).
             var localCmp = new Version(local.Major, local.Minor, Math.Max(local.Build, 0));
             var latestCmp = new Version(latest.Major, latest.Minor, Math.Max(latest.Build, 0));
-            return (latestCmp > localCmp, localStr, latestStr, PatcherDownloadUrl);
+            return (latestCmp > localCmp, localStr, latestStr, url);
         }
         catch
         {

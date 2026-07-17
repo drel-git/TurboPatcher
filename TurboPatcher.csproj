@@ -9,8 +9,10 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <AssemblyName>TurboPatcher</AssemblyName>
     <RootNamespace>TurboPatcher</RootNamespace>
-    <Version>1.0.4</Version>
+    <Version>1.1.0</Version>
     <ApplicationIcon>Assets\Turbo.ico</ApplicationIcon>
+    <!-- Sibling projects live under this directory; do not compile their sources. -->
+    <DefaultItemExcludes>$(DefaultItemExcludes);TurboPatcher.Core/**;TurboPatcher.Cli/**;publish*/**</DefaultItemExcludes>
     <!-- Single-file distribution: every publish (CLI or Visual Studio) yields
          exactly one self-contained TurboPatcher.exe, nothing else to ship.
          The native WPF libs are folded into the exe and extracted on first run. -->
@@ -31,7 +33,8 @@
     <Resource Include="Assets\Turbo.ico" />
   </ItemGroup>
 
-  <!-- No third-party packages: uses only the .NET BCL (HttpClient, ZipFile,
-       System.Text.Json), so the self-contained single-file build stays lean. -->
+  <ItemGroup>
+    <ProjectReference Include="TurboPatcher.Core\TurboPatcher.Core.csproj" />
+  </ItemGroup>
 
 </Project>
