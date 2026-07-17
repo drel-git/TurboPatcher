@@ -345,9 +345,31 @@
                                    Margin="0,8,0,0"
                                    Foreground="#FF9fb8c0"
                                    FontFamily="Segoe UI"
-                                   FontSize="11"
+                                   FontSize="12"
                                    TextWrapping="Wrap"
                                    Text="Select your MacroQuest folder to begin."/>
+
+                        <!-- Suite CTA sits under status so it never hides under the log -->
+                        <Button x:Name="ActionButton"
+                                Margin="0,10,0,0"
+                                Content="Check for Updates"
+                                Style="{StaticResource PatcherButton}"
+                                BorderBrush="#FFD49A2A"
+                                Foreground="#FFE8DCC8"
+                                Background="#CC1a4a38"
+                                HorizontalAlignment="Stretch"
+                                Height="42"
+                                FontSize="14"
+                                FontWeight="SemiBold"
+                                Click="ActionButton_Click"/>
+
+                        <TextBlock x:Name="ActionHint"
+                                   Margin="0,6,0,0"
+                                   Foreground="#FF7a8a90"
+                                   FontFamily="Segoe UI"
+                                   FontSize="11"
+                                   TextWrapping="Wrap"
+                                   Text=""/>
 
                         <TextBlock Text="What's New"
                                    Foreground="#FFe8b84a"
@@ -355,7 +377,7 @@
                                    FontSize="11"
                                    Margin="0,12,0,4"/>
 
-                        <Border Height="160"
+                        <Border Height="140"
                                 Background="#88060e0a"
                                 BorderBrush="#FF2a8ba0"
                                 BorderThickness="1"
@@ -377,32 +399,6 @@
                             </ScrollViewer>
 
                         </Border>
-
-                    </StackPanel>
-
-                    <!-- Always pinned above the log so Update Now cannot scroll/clip away -->
-                    <StackPanel DockPanel.Dock="Bottom"
-                                Margin="0,0,0,8">
-
-                        <Button x:Name="ActionButton"
-                                Content="Check for Updates"
-                                Style="{StaticResource PatcherButton}"
-                                BorderBrush="#FFD49A2A"
-                                Foreground="#FFE8DCC8"
-                                Background="#CC1a4a38"
-                                HorizontalAlignment="Stretch"
-                                Height="40"
-                                FontSize="14"
-                                FontWeight="SemiBold"
-                                Click="ActionButton_Click"/>
-
-                        <TextBlock x:Name="ActionHint"
-                                   Margin="0,6,0,0"
-                                   Foreground="#FF7a8a90"
-                                   FontFamily="Segoe UI"
-                                   FontSize="10"
-                                   TextWrapping="Wrap"
-                                   Text=""/>
 
                     </StackPanel>
 

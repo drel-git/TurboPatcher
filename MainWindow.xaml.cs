@@ -1,5 +1,6 @@
 using System.Collections.ObjectModel;
 using System.IO;
+using System.Text;
 using System.Windows;
 using System.Windows.Forms;
 using System.Windows.Input;
@@ -24,6 +25,7 @@ public partial class MainWindow : Window
     private bool _autoUpdate;
     private bool _hasNew;
     private int _refreshGen;
+    private bool _relaunchedAfterSelfUpdate;
 
     public MainWindow()
     {
@@ -81,12 +83,28 @@ public partial class MainWindow : Window
             var marker = Path.Combine(Path.GetTempPath(), "TurboPatcher_update", "relaunched.flag");
             if (!File.Exists(marker)) return;
             File.Delete(marker);
+            _relaunchedAfterSelfUpdate = true;
             var ver = PatcherService.LocalPatcherVersionString();
             AppendLog(string.IsNullOrEmpty(ver)
                 ? "Patcher relaunched after self-update."
                 : $"Patcher updated to v{ver}.");
         }
         catch { }
+    }
+
+    /// <summary>Cmd-safe argument list so self-update relaunch keeps --mq / --update.</summary>
+    private string BuildRelaunchArgsForCmd()
+    {
+        var sb = new StringBuilder();
+        var mq = _settings.MacroQuestFolder?.Trim() ?? "";
+        if (!string.IsNullOrWhiteSpace(mq) && PatcherService.IsMqFolder(mq))
+            sb.Append($"--mq \"{mq}\"");
+        if (_autoUpdate)
+        {
+            if (sb.Length > 0) sb.Append(' ');
+            sb.Append("--update");
+        }
+        return sb.ToString();
     }
 
     private async Task RefreshSelfUpdateAsync()
@@ -102,9 +120,9 @@ public partial class MainWindow : Window
             _selfLatestVersion = result.LatestVersion;
             SelfUpdateText.Text =
                 $"Patcher update available: you have v{result.LocalVersion}, latest is v{result.LatestVersion}. " +
-                "Suite updates still work — update the patcher first for the newest installer features.";
+                "Suite updates still work - update the patcher first for the newest installer features.";
             SelfUpdateBanner.Visibility = Visibility.Visible;
-            AppendLog($"Patcher update available: v{result.LocalVersion} → v{result.LatestVersion}");
+            AppendLog($"Patcher update available: v{result.LocalVersion} -> v{result.LatestVersion}");
         }
         catch
         {
@@ -118,6 +136,7 @@ public partial class MainWindow : Window
         _busy = true;
         SelfUpdateButton.IsEnabled = false;
         SelfUpdateButton.Content = "Updating...";
+        ActionHint.Text = "Downloading the new patcher, then restarting quietly...";
         try
         {
             var cts = new CancellationTokenSource();
@@ -128,7 +147,11 @@ public partial class MainWindow : Window
                 throw new InvalidOperationException("Could not resolve this patcher's path.");
 
             var helper = PatcherService.WriteWindowsSelfUpdateHelper(
-                Environment.ProcessId, downloaded, target, Path.GetDirectoryName(target));
+                Environment.ProcessId,
+                downloaded,
+                target,
+                Path.GetDirectoryName(target),
+                BuildRelaunchArgsForCmd());
             try
             {
                 File.WriteAllText(
@@ -137,14 +160,17 @@ public partial class MainWindow : Window
             }
             catch { }
 
+            // Run the helper via cmd with no window (UseShellExecute+ .cmd shows a console).
             Process.Start(new ProcessStartInfo
             {
-                FileName = helper,
-                UseShellExecute = true,
+                FileName = "cmd.exe",
+                Arguments = $"/c \"{helper}\"",
+                UseShellExecute = false,
                 CreateNoWindow = true,
+                WindowStyle = ProcessWindowStyle.Hidden,
                 WorkingDirectory = Path.GetDirectoryName(helper) ?? "",
             });
-            AppendLog("Restarting into the new patcher...");
+            AppendLog("Restarting into the new patcher (no console window)...");
             System.Windows.Application.Current.Shutdown();
         }
         catch (Exception ex)
@@ -222,7 +248,7 @@ public partial class MainWindow : Window
             _settings.InstalledVersion = installedVersion;
             _settings.Save();
         }
-        PatchNotesText.Text = log;
+        PatchNotesText.Text = PatcherService.AsciiSafe(log);
 
         var notInstalled = string.IsNullOrEmpty(installedSha) && string.IsNullOrEmpty(installedVersion);
         if (notInstalled)
@@ -234,35 +260,40 @@ public partial class MainWindow : Window
         }
         else if (hasNew)
         {
-            StatusLine.Text =
-                $"Installed: {Pretty(installedVersion, installedSha)}\n" +
-                $"Available: {Pretty(remoteVersion, remoteSha)} — update available";
+            var from = string.IsNullOrEmpty(installedVersion) ? Short(installedSha) : $"v{installedVersion}";
+            var to = string.IsNullOrEmpty(remoteVersion) ? Short(remoteSha) : $"v{remoteVersion}";
+            StatusLine.Text = $"Suite update ready:  {from}  ->  {to}";
             StatusLine.Foreground = new SolidColorBrush(System.Windows.Media.Color.FromRgb(0xff, 0xc2, 0x4a));
             ActionButton.Content = "Update Now";
-            ActionHint.Text = "Click Update Now to install the latest suite, then reload Turbo in-game.";
+            ActionHint.Text = _relaunchedAfterSelfUpdate
+                ? "Patcher is current. Click Update Now to install the suite, then reload Turbo in-game."
+                : "Click Update Now to install the latest suite, then reload Turbo in-game.";
         }
         else
         {
             StatusLine.Text =
                 $"Installed: {Pretty(installedVersion, installedSha)}\n" +
-                $"Available: {Pretty(remoteVersion, remoteSha)} — up to date";
+                $"Available: {Pretty(remoteVersion, remoteSha)} - up to date";
             StatusLine.Foreground = new SolidColorBrush(System.Windows.Media.Color.FromRgb(0x9f, 0xb8, 0xc0));
             ActionButton.Content = "Reinstall / Recheck";
-            ActionHint.Text = "You are on the latest suite. Reinstall forces a fresh copy from GitHub.";
+            ActionHint.Text = _relaunchedAfterSelfUpdate
+                ? "Patcher updated. Suite is already current - nothing else to install."
+                : "You are on the latest suite. Reinstall forces a fresh copy from GitHub.";
         }
         ActionButton.IsEnabled = true;
+        _relaunchedAfterSelfUpdate = false;
 
         if (_autoUpdate && hasNew && !_busy)
         {
             _autoUpdate = false; // one-shot
-            AppendLog("Auto-update requested — starting suite update...");
+            AppendLog("Auto-update requested - starting suite update...");
             ActionButton_Click(ActionButton, new RoutedEventArgs());
         }
         else if (_autoUpdate && !hasNew)
         {
             _autoUpdate = false;
             AppendLog("Auto-update requested, but the suite is already up to date.");
-            ActionHint.Text = "Already up to date — no suite update needed.";
+            ActionHint.Text = "Already up to date - no suite update needed.";
         }
     }
 
@@ -323,7 +354,7 @@ public partial class MainWindow : Window
 
     private void AppendLog(string message)
     {
-        _logEntries.Add(message);
+        _logEntries.Add(PatcherService.AsciiSafe(message));
         LogScroller.ScrollToBottom();
     }
 
@@ -336,7 +367,7 @@ public partial class MainWindow : Window
 
         ActionButton.IsEnabled = false;
         ActionButton.Content = "Working...";
-        ActionHint.Text = "Updating files — Turbo scripts will pause via patch lock...";
+        ActionHint.Text = "Updating files - Turbo scripts will pause via patch lock...";
         _logEntries.Clear();
 
         var progress = new Progress<(double Percent, string Status)>(t => StatusLine.Text = t.Status);

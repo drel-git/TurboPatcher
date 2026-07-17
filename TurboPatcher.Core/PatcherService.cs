@@ -123,7 +123,7 @@ public class PatcherService
         {
             // Have files on disk but no stamp (manual zip / wiped AppData): treat as installed
             // by version only; SHA compare will still show "update available" until next Patch
-            // writes a stamp — unless AppData SHA matches remote.
+            // writes a stamp - unless AppData SHA matches remote.
             if (!string.IsNullOrEmpty(appDataSha))
                 return (appDataSha, !string.IsNullOrEmpty(appDataVersion) ? appDataVersion : changelogVer);
             return ("", changelogVer);
@@ -221,9 +221,20 @@ public class PatcherService
             var firstLine = text.Split('\n')[0].Trim();
             var version = System.Text.RegularExpressions.Regex.IsMatch(firstLine, @"^\d+\.\d+")
                 ? firstLine : "";
-            return (version, text);
+            return (version, AsciiSafe(text));
         }
         catch { return ("", ""); }
+    }
+
+    /// <summary>Replace fancy dashes/arrows so UI fonts never show odd glyphs.</summary>
+    public static string AsciiSafe(string? text)
+    {
+        if (string.IsNullOrEmpty(text)) return "";
+        return text
+            .Replace('\u2014', '-') // em dash
+            .Replace('\u2013', '-') // en dash
+            .Replace('\u2212', '-') // minus
+            .Replace("\u2192", "->"); // unicode arrow
     }
 
     // Returns whether the remote head differs from the installed suite, the remote
@@ -250,7 +261,7 @@ public class PatcherService
             && !string.Equals(remote, installedSha, StringComparison.OrdinalIgnoreCase);
         bool versionNewer = instVer is not null && remVer is not null && remVer > instVer;
 
-        // Unknown install → offer Install. Otherwise update if tip SHA moved OR
+        // Unknown install -> offer Install. Otherwise update if tip SHA moved OR
         // remote CHANGELOG version is greater (covers stamp/version skew).
         bool hasNew = string.IsNullOrEmpty(installedSha) && string.IsNullOrEmpty(installedVersion)
             || shaDiffers
@@ -429,12 +440,16 @@ public class PatcherService
     /// <paramref name="targetExe"/> with <paramref name="newExe"/>, then relaunches.
     /// Returns the helper path (caller starts it then exits).
     /// </summary>
-    public static string WriteWindowsSelfUpdateHelper(int pid, string newExe, string targetExe, string? workingDir)
+    /// <param name="relaunchArgs">Optional args after the exe (already escaped for cmd).</param>
+    public static string WriteWindowsSelfUpdateHelper(
+        int pid, string newExe, string targetExe, string? workingDir, string relaunchArgs = "")
     {
         var dir = Path.GetDirectoryName(newExe) ?? Path.GetTempPath();
         var helper = Path.Combine(dir, "turbo_patcher_self_update.cmd");
         workingDir ??= Path.GetDirectoryName(targetExe) ?? dir;
-        // Use ping as a short wait loop; copy /Y then start the new exe.
+        var args = string.IsNullOrWhiteSpace(relaunchArgs) ? "" : " " + relaunchArgs.Trim();
+        // Quiet wait/copy/relaunch. No pause on success; failure writes a log file.
+        var failLog = Path.Combine(dir, "self_update_fail.txt");
         var content = $"""
             @echo off
             setlocal
@@ -447,11 +462,10 @@ public class PatcherService
             ping -n 2 127.0.0.1 >NUL
             copy /Y "{newExe}" "{targetExe}" >NUL
             if errorlevel 1 (
-              echo TurboPatcher self-update failed to replace the exe.
-              pause
+              echo TurboPatcher self-update failed to replace the exe.> "{failLog}"
               exit /b 1
             )
-            start "" /D "{workingDir}" "{targetExe}"
+            start "" /D "{workingDir}" "{targetExe}"{args}
             del "%~f0" >NUL 2>&1
             endlocal
             """;

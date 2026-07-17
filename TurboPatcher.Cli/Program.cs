@@ -94,7 +94,7 @@ try
                 Console.WriteLine($"Already up to date (v{self.LocalVersion}).");
                 return ExitOk;
             }
-            Console.WriteLine($"Updating patcher v{self.LocalVersion} → v{self.LatestVersion}...");
+            Console.WriteLine($"Updating patcher v{self.LocalVersion} -> v{self.LatestVersion}...");
             var log = new Progress<string>(Console.WriteLine);
             if (OperatingSystem.IsLinux())
             {
@@ -127,7 +127,7 @@ try
         {
             var self = service.CheckSelfUpdate();
             if (self.UpdateAvailable)
-                Console.WriteLine($"Patcher update available: v{self.LocalVersion} → v{self.LatestVersion} (run: self-update)");
+                Console.WriteLine($"Patcher update available: v{self.LocalVersion} -> v{self.LatestVersion} (run: self-update)");
             else if (!string.IsNullOrEmpty(self.LatestVersion))
                 Console.WriteLine($"Patcher v{self.LocalVersion} (up to date)");
             else
@@ -182,7 +182,7 @@ try
             var self = service.CheckSelfUpdate();
             if (self.UpdateAvailable)
             {
-                Console.WriteLine($"Note: this patcher is behind (v{self.LocalVersion} → v{self.LatestVersion}).");
+                Console.WriteLine($"Note: this patcher is behind (v{self.LocalVersion} -> v{self.LatestVersion}).");
                 Console.WriteLine("Run: TurboPatcher self-update   (or download from the URL below)");
                 Console.WriteLine($"Download: {self.DownloadUrl}");
                 Console.WriteLine("Continuing with suite update...");
@@ -192,7 +192,7 @@ try
             if (string.IsNullOrWhiteSpace(mq) || !PatcherService.IsMqFolder(mq))
             {
                 Console.Error.WriteLine("Error: MacroQuest folder required. Use --mq PATH");
-                Console.Error.WriteLine("(Must contain lua/ and config/. Lutris: Wine prefix → Browse Files → MQ root.)");
+                Console.Error.WriteLine("(Must contain lua/ and config/. Lutris: Wine prefix -> Browse Files -> MQ root.)");
                 return ExitError;
             }
 

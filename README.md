@@ -21,21 +21,21 @@ TurboGive, TurboMobs, and more) into your MacroQuest folder.
 Download the self-contained `TurboPatcher.exe`, point it at your MacroQuest
 folder, and click **Install / Update**.
 
-When a newer patcher is on GitHub, use **Update Patcher** — it downloads and
-restarts into the new exe (browser download is only a fallback).
+When a newer patcher is on GitHub, use **Update Patcher** - it downloads and
+restarts into the new exe quietly (no console flash; browser download is only a
+fallback). After relaunch, **Update Now** sits under the status line for the suite.
 
 From in-game, the Turbo update banner / mini **Update** button launches:
 
 `TurboPatcher.exe --mq "<your MQ root>" --update`
 
-so the suite update starts automatically after the version check. The big
-**Update Now** button stays pinned at the bottom of the window.
+so the suite update starts automatically after the version check.
 
 ### Linux / Lutris (CLI)
 
 MacroQuest under Lutris lives in a Wine prefix. Download the CLI binary, make it
 executable, and point `--mq` at the MQ root inside that prefix (the folder that
-contains `lua/` and `config/` — Lutris → right-click game → **Run EXE inside
+contains `lua/` and `config/` - Lutris -> right-click game -> **Run EXE inside
 Wine prefix** / **Browse files**):
 
 ```bash
@@ -48,7 +48,7 @@ chmod +x TurboPatcher-linux-x64
 ## Updating (smooth path)
 
 1. **In game:** Turbo shows a banner when GitHub has a newer suite version
-   (`More` → optional “Check for Turbo updates”). Click **Update** or run
+   (`More` -> optional "Check for Turbo updates"). Click **Update** or run
    `/turbopatcher`.
 2. **Patcher:** If the patcher itself is behind, click **Update Patcher** first,
    then **Update Now** for the suite.
@@ -88,8 +88,8 @@ fork the repo. The patcher reads the **public mirror** `drel-git/Turbo`.
 
 Pushing a `v*` tag runs CI and attaches:
 
-- `TurboPatcher.exe` — Windows GUI (`win-x64`)
-- `TurboPatcher-linux-x64` — Linux CLI (`linux-x64`)
+- `TurboPatcher.exe` - Windows GUI (`win-x64`)
+- `TurboPatcher-linux-x64` - Linux CLI (`linux-x64`)
 
 Local:
 
