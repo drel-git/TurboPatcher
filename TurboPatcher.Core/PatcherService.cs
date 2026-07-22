@@ -71,7 +71,8 @@ public class PatcherService
             var root = doc.RootElement;
             var sha = root.TryGetProperty("sha", out var s) ? (s.GetString() ?? "") : "";
             var version = root.TryGetProperty("version", out var v) ? (v.GetString() ?? "") : "";
-            return (sha.Trim(), version.Trim());
+            // Older patchers accidentally stamped the full CHANGELOG into version.
+            return (sha.Trim(), NormalizeVersionStamp(version));
         }
         catch { return ("", ""); }
     }
@@ -80,6 +81,8 @@ public class PatcherService
     {
         try
         {
+            // Guard against callers accidentally passing full CHANGELOG text.
+            version = NormalizeVersionStamp(version);
             var configFolder = Path.Combine(mqFolder, "config");
             Directory.CreateDirectory(configFolder);
             var payload = new Dictionary<string, object?>
@@ -121,7 +124,12 @@ public class PatcherService
     {
         var (stampSha, stampVer) = ReadInstallStamp(mqFolder);
         if (!string.IsNullOrEmpty(stampSha))
-            return (stampSha, !string.IsNullOrEmpty(stampVer) ? stampVer : ReadLocalChangelogVersion(mqFolder));
+        {
+            // Disk CHANGELOG is ground truth after a patch; stamp version can be stale
+            // or (older bug) the entire notes blob normalized to the wrong first line.
+            var localVer = ReadLocalChangelogVersion(mqFolder);
+            return (stampSha, !string.IsNullOrEmpty(localVer) ? localVer : stampVer);
+        }
 
         var changelogVer = ReadLocalChangelogVersion(mqFolder);
         if (!string.IsNullOrEmpty(changelogVer))
@@ -285,11 +293,19 @@ public class PatcherService
         return $"{ver.Major}.{ver.Minor}.{ver.Build}";
     }
 
+    /// <summary>First line only, stripped of a leading v - never full CHANGELOG text.</summary>
+    private static string NormalizeVersionStamp(string? text)
+    {
+        if (string.IsNullOrWhiteSpace(text)) return "";
+        var line = text.Replace("\r\n", "\n").Split('\n')[0].Trim();
+        if (line.StartsWith('v') || line.StartsWith('V')) line = line[1..].Trim();
+        return System.Text.RegularExpressions.Regex.IsMatch(line, @"^\d+\.\d+") ? line : "";
+    }
+
     private static Version? ParseVersion(string? text)
     {
+        text = NormalizeVersionStamp(text);
         if (string.IsNullOrWhiteSpace(text)) return null;
-        text = text.Trim();
-        if (text.StartsWith('v') || text.StartsWith('V')) text = text[1..];
         // Accept "1.0.3" or "1.0.3+meta"; ignore revision for comparison.
         var core = text.Split('-', '+')[0];
         return Version.TryParse(core, out var v) ? v : null;
@@ -399,10 +415,14 @@ public class PatcherService
             // Safe to delete - they rebuild on next TurboGear load.
             ClearTurboGearDcatCaches(configFolder, log);
 
-            var (_, remoteNotesVersion) = FetchChangelog();
-            var stampVersion = !string.IsNullOrEmpty(remoteNotesVersion)
-                ? remoteNotesVersion
-                : ReadLocalChangelogVersion(mqFolder);
+            // Prefer the CHANGELOG we just copied (authoritative for this install).
+            // FetchChangelog returns (version, fullNotes) - use Item1 only, never the notes blob.
+            var stampVersion = ReadLocalChangelogVersion(mqFolder);
+            if (string.IsNullOrEmpty(stampVersion))
+            {
+                var (remoteVersion, _) = FetchChangelog();
+                stampVersion = remoteVersion;
+            }
             WriteInstallStamp(mqFolder, remoteSha, stampVersion);
 
             Report(1.0, $"Done - {copied} file(s) updated.");
